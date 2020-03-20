@@ -20,17 +20,17 @@ class SudokuSolverGUI:
             self.gridcells.append([])
             for j in range(self.gridsize):
                 cell_entry = tk.Entry(self.grid_frame,font="Calibri 20",justify='center',width=2)
-				cell_entry.grid(row=i,column=j)
-				self.gridcells[i].append(cell_entry)
+                cell_entry.grid(row=i,column=j)
+                self.gridcells[i].append(cell_entry)
 
                 
-		self.options_frame = tk.Frame(master,width=200)
-		self.options_frame.pack()
+        self.options_frame = tk.Frame(master,width=200)
+        self.options_frame.pack()
         
-		self.solve_button = tk.Button(self.options_frame,text='Solve',command=self.solve)
-		self.solve_button.pack(side=tk.LEFT)
+        self.solve_button = tk.Button(self.options_frame,text='Solve',command=self.solve)
+        self.solve_button.pack(side=tk.LEFT)
         
-		self.save_button = tk.Button(self.options_frame,text='Save',command=self.save)
+        self.save_button = tk.Button(self.options_frame,text='Save',command=self.save)
         self.save_button.pack(side=tk.LEFT)
         
         self.load_button = tk.Button(self.options_frame,text='Load',command=self.load)

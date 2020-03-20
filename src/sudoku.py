@@ -1,5 +1,7 @@
+# imports
 import numpy as np
 import itertools
+import copy as cp
 import sys
 
 class Sudoku:
@@ -34,6 +36,15 @@ class Sudoku:
 		self.logname = 'sudokulog.txt' # log file to keep track of solving procedure
 		self.logfile = open(self.logname,'w+') # create file
 		self.logfile.close() # close file for safety (open it only just before writing)
+
+	def copy(self):
+		# make a deep copy of an entire sudoku (but log file is shared)
+		S = Sudoku(np.zeros((self.size,self.size)))
+		S.grid = np.copy(self.grid)
+		S.candidates = cp.deepcopy(self.candidates)
+		S.nunfilled = self.nunfilled
+		S.ncands = self.ncands
+		return S
 		
 	def getgrid(self):
 		# get copy of grid for read-only purposes
@@ -336,7 +347,8 @@ class Sudoku:
 								
 	def blockblockhorizontalinteraction(self,group,groupindex,label,candidates):
 		# ADVANCED solving method (block-based)
-		# if a candidate occurs in only two rows in two horizontally aligned blocks, remove it from the remaining positions in those rows
+		# if a candidate occurs in only two rows in two horizontally aligned blocks, 
+        # remove it from the remaining positions in those rows
 		for i in range(self.size):
 			if(i<=groupindex or self.getcell(label,i,0)[0]!=self.getcell(label,groupindex,0)[0]): continue
 			groupi,candidatesi = self.getblock(i)
@@ -361,7 +373,8 @@ class Sudoku:
 		
 	def blockblockverticalinteraction(self,group,groupindex,label,candidates):
 		# ADVANCED solving method (block-based)
-		# if a candidate occurs in only two columns in two vertically aligned blocks, remove it from the remaining positions in those columns
+		# if a candidate occurs in only two columns in two vertically aligned blocks, 
+        # remove it from the remaining positions in those columns
 		for i in range(self.size):
 			if(i<=groupindex or self.getcell(label,i,0)[1]!=self.getcell(label,groupindex,0)[1]): continue
 			groupi,candidatesi = self.getblock(i)
@@ -474,6 +487,7 @@ class Sudoku:
 		self.logfile.write('Basic methods finished.\n')
 		(outputcode,message) = self.terminate()
 		if outputcode!=0: return (outputcode,message)
+        # STEP 2: advanced methods
 		self.logfile.write('Start using more advanced methods...\n')
 		self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
 						 'lineblockinteraction','blockblockinteraction'])
@@ -490,6 +504,7 @@ class Sudoku:
 		self.logfile.write('Advanced methods finished.\n')
 		(outputcode,message) = self.terminate()
 		if outputcode!=0: return (outputcode,message)
+        # STEP 3: hyperadvanced methods
 		self.logfile.write('Start using hyperadvanced methods...\n')
 		self.swordfishcolumns()
 		self.swordfishrows()
@@ -510,12 +525,29 @@ class Sudoku:
 		self.logfile.write('Hyperadvanced methods finished.\n')
 		(outputcode,message) = self.terminate()
 		if outputcode!=0: return (outputcode,message)
-		message = 'Unable to solve sudoku with presently implemented methods...\n'
-		self.logfile.write(message)
+        # STEP 4: brute force
+		self.logfile.write('Unable to solve sudoku with presently implemented methods...\n')
 		self.logfile.write('Got up to this point: \n')
 		self.logfile.write(self.grid)
+        self.logfile.write('Starting brute force methods...')
+        (outcode,message) = self.solvebruteforce()
+        self.logfile.write(message)
 		self.logfile.close()
 		return (0,message)
+
+    def solvebruteforce(self):
+        # fill a cell by random guessing and recursively call solver
+        rowmin = 0; colmin = 0; candmin = self.size+1
+        for i in range(self.size):
+            for j in range(self.size):
+                if len(self.cands[i][j]) < candmin:
+                    candmin = len(self.cands[i][j])
+                    rowmin = i; colmin = j
+        for cand in self.cands[rowmin][colmin]:
+            S = self.copy()
+            S.setcell(rowmin,colmin,cand)
+            (outcode,message) = S.solve()
+            if outcode==1: return (outcode,message)
 		
 	def terminate(self):
 		# check termination conditions and print final output to screen

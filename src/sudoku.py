@@ -5,7 +5,7 @@ import copy as cp
 import sys
 
 class Sudoku:
-    def __init__(self,startgrid):
+    def __init__(self,startgrid,newlogfile=True):
         # intializer: assign dimension, starting grid and other useful variables
         if 'numpy.ndarray' not in str(type(startgrid)):
             print('ERROR: starting grid (type numpy array) required for initialization!')
@@ -34,17 +34,28 @@ class Sudoku:
                     self.nunfilled -= 1
                     self.ncands -= 8
         self.logname = 'sudokulog.txt' # log file to keep track of solving procedure
-        self.logfile = open(self.logname,'w+') # create file
+        if newlogfile: self.logfile = open(self.logname,'w') # create file
+        else: self.logfile = open(self.logname,'a')
         self.logfile.close() # close file for safety (open it only just before writing)
 
-    def copy(self):
-        # make a deep copy of an entire sudoku (but log file is shared)
-        S = Sudoku(np.zeros((self.size,self.size)))
+    def copy(self,newlogfile=True):
+        # make a deep copy of an entire sudoku
+        S = Sudoku(np.zeros((self.size,self.size)),newlogfile)
         S.grid = np.copy(self.grid)
         S.candidates = cp.deepcopy(self.candidates)
         S.nunfilled = self.nunfilled
         S.ncands = self.ncands
         return S
+
+    def set(self,S):
+        # set self to a deepcopy of S (log file is shared) 
+        self.size = S.size
+        self.blocksize = S.blocksize
+        self.grid = np.copy(S.grid)
+        self.candidates = cp.deepcopy(S.candidates)
+        self.nunfilled = S.nunfilled
+        self.ncands = S.ncands
+        self.logname = S.logname
         
     def getgrid(self):
         # get copy of grid for read-only purposes
@@ -472,6 +483,8 @@ class Sudoku:
     def solve(self):
         # main method grouping all solving methods and calling them in increasing order of complexity
         self.logfile = open(self.logname,'a')
+        self.logfile.write('Start solving method on the following sudoku:\n')
+        self.logfile.write(self.tostring())
         ncands = self.ncands # use ncands to keep track of changes made by each method
         self.logfile.write('number of initial candidates: '+str(ncands)+'\n')
         # STEP 1: basic methods
@@ -485,9 +498,11 @@ class Sudoku:
             self.loopgroups(['complement'])
             self.logfile.write('number of remaining candidates '+str(self.ncands)+'\n')
         self.logfile.write('Basic methods finished.\n')
+        self.logfile.close()
         (outputcode,message) = self.terminate()
         if outputcode!=0: return (outputcode,message)
         # STEP 2: advanced methods
+        self.logfile = open(self.logname,'a')
         self.logfile.write('Start using more advanced methods...\n')
         self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                          'lineblockinteraction','blockblockinteraction'])
@@ -502,9 +517,11 @@ class Sudoku:
             self.loopgroups(['complement'])
             self.logfile.write('number of remaining candidates: '+str(self.ncands)+'\n')
         self.logfile.write('Advanced methods finished.\n')
+        self.logfile.close()
         (outputcode,message) = self.terminate()
         if outputcode!=0: return (outputcode,message)
         # STEP 3: hyperadvanced methods
+        self.logfile = open(self.logname,'a')
         self.logfile.write('Start using hyperadvanced methods...\n')
         self.swordfishcolumns()
         self.swordfishrows()
@@ -523,31 +540,42 @@ class Sudoku:
             self.loopgroups(['complement'])
             self.logfile.write('number of remaining candidates: '+str(self.ncands)+'\n')
         self.logfile.write('Hyperadvanced methods finished.\n')
+        self.logfile.close()
         (outputcode,message) = self.terminate()
         if outputcode!=0: return (outputcode,message)
         # STEP 4: brute force
+        self.logfile = open(self.logname,'a')
         self.logfile.write('Unable to solve sudoku with presently implemented methods...\n')
         self.logfile.write('Got up to this point: \n')
-        self.logfile.write(self.grid)
-        self.logfile.write('Starting brute force methods...')
-        (outcode,message) = self.solvebruteforce()
-        self.logfile.write(message)
+        self.logfile.write(self.tostring())
+        self.logfile.write('Starting brute force methods...\n')
         self.logfile.close()
-        return (0,message)
+        (outcode,message) = self.solvebruteforce()
+        return (outcode,message)
 
     def solvebruteforce(self):
         # fill a cell by random guessing and recursively call solver
         rowmin = 0; colmin = 0; candmin = self.size+1
         for i in range(self.size):
             for j in range(self.size):
-                if len(self.cands[i][j]) < candmin:
-                    candmin = len(self.cands[i][j])
+                ncands = len(self.candidates[i][j])
+                if(ncands<candmin and ncands>=2):
+                    candmin = len(self.candidates[i][j])
                     rowmin = i; colmin = j
-        for cand in self.cands[rowmin][colmin]:
-            S = self.copy()
+        for cand in self.candidates[rowmin][colmin]:
+            self.logfile = open(self.logname,'a')
+            message = 'row and column indices of cell with least candidates: '
+            message += str(rowmin)+','+str(colmin)+'\n'
+            message += 'candidates are: '+str(self.candidates[rowmin][colmin])+'\n'
+            message += 'now trying: '+str(cand)+'\n'
+            self.logfile.write(message)
+            self.logfile.close()
+            S = self.copy(newlogfile=False)
             S.setcell(rowmin,colmin,cand)
             (outcode,message) = S.solve()
-            if outcode==1: return (outcode,message)
+            if outcode==1: 
+                self.set(S)
+                return (outcode,message)
         
     def terminate(self):
         # check termination conditions and print final output to screen
@@ -555,8 +583,11 @@ class Sudoku:
         #       -1: invalid sudoku detected, stop processing
         #       0: sudoku partially solved, continue processing
         #       1: sudoku fully solved, stop processing
-        if not self.isvalid(): 
-            message = 'ERROR: sudoku is invalid \n -> check solving methods for bugs or input for typos!\n'
+        self.logfile = open(self.logname,'a')
+        if not self.isvalid():
+            message = 'ERROR: sudoku is invalid \n'
+            message += '-> when running in brute force mode, this is part of the standard workflow \n'
+            message += '-> if not, check solving methods for bugs or input for typos!\n'
             self.logfile.write(message)
             self.logfile.close()
             return (-1,message)
@@ -569,6 +600,7 @@ class Sudoku:
         message = 'The sudoku at this point:\n'
         self.logfile.write(message)
         self.logfile.write(self.tostring())
+        self.logfile.close()
         return (0,message)
     
     def tostring(self):

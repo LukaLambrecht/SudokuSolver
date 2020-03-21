@@ -5,7 +5,7 @@ import copy as cp
 import sys
 
 class Sudoku:
-    def __init__(self,startgrid,newlogfile=True):
+    def __init__(self,startgrid,logfilename,newlogfile=True):
         # intializer: assign dimension, starting grid and other useful variables
         if 'numpy.ndarray' not in str(type(startgrid)):
             print('ERROR: starting grid (type numpy array) required for initialization!')
@@ -33,14 +33,14 @@ class Sudoku:
                     self.candidates[i][j] = [self.grid[i,j]]
                     self.nunfilled -= 1
                     self.ncands -= 8
-        self.logname = 'sudokulog.txt' # log file to keep track of solving procedure
+        self.logname = logfilename # log file to keep track of solving procedure
         if newlogfile: self.logfile = open(self.logname,'w') # create file
         else: self.logfile = open(self.logname,'a')
         self.logfile.close() # close file for safety (open it only just before writing)
 
-    def copy(self,newlogfile=True):
+    def copy(self,logfilename,newlogfile=True):
         # make a deep copy of an entire sudoku
-        S = Sudoku(np.zeros((self.size,self.size)),newlogfile)
+        S = Sudoku(np.zeros((self.size,self.size)),logfilename,newlogfile)
         S.grid = np.copy(self.grid)
         S.candidates = cp.deepcopy(self.candidates)
         S.nunfilled = self.nunfilled
@@ -570,7 +570,7 @@ class Sudoku:
             message += 'now trying: '+str(cand)+'\n'
             self.logfile.write(message)
             self.logfile.close()
-            S = self.copy(newlogfile=False)
+            S = self.copy(self.logname,newlogfile=False)
             S.setcell(rowmin,colmin,cand)
             (outcode,message) = S.solve()
             if outcode==1: 

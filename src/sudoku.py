@@ -4,7 +4,7 @@ import itertools
 import copy as cp
 import sys
 
-class Sudoku:
+class Sudoku(object):
     def __init__(self,startgrid,logfilename,newlogfile=True):
         # intializer: assign dimension, starting grid and other useful variables
         if 'numpy.ndarray' not in str(type(startgrid)):
@@ -177,24 +177,32 @@ class Sudoku:
                 containslist.append(i)
         return True
     
-    def reducecandidates(self):
+    def reducecandidates(self,solve=True):
         # BASIC solving method (element-based)
         # loop over all elements in the grid and remove candidates based on row, column and block restrictions.
+        res = []
         for i in range(self.size):
             for j in range(self.size):
                 if self.grid[i][j]!=0:
                     continue
-                for group in [self.getrow(i)[0],self.getcolumn(j)[0],self.getblock(i,j)[0]]:
+                for k,group in enumerate([self.getrow(i)[0],self.getcolumn(j)[0],self.getblock(i,j)[0]]):
                     for number in group:
-                        self.removecandidate(i,j,number)
+                        if number in self.candidates[i][j]:
+                            groupname = ['row','column','block'][k]
+                            res.append({'method':'reducecandidates',
+                                        'infokeys':['cell','label','value'],
+                                        'cell':(i,j),'label':groupname,'value':number})
+                            if solve: self.removecandidate(i,j,number)
+        return res
                     
-    def loopgroups(self,groupfunctions,labels=['row','column','block']):
+    def loopgroups(self,groupfunctions,labels=['row','column','block'],solve=True):
         # generic looper over all groups in the grid
         # groupfunctions is a list of function to be called on each group
         # labels is a list of types of groups to loop over, default all groups
         labels = labels[:] # copy to local variable since it might be altered
         groupfunctions = groupfunctions[:] # see above
         validlabels = []
+        res = []
         if 'row' in labels: validlabels.append('row'); labels.remove('row')
         if 'column' in labels: validlabels.append('column'); labels.remove('column')
         if 'block' in labels: validlabels.append('block'); labels.remove('block')
@@ -204,26 +212,28 @@ class Sudoku:
                 group,cands = self.getgroup(validlabel,i)
                 for f in groupfunctions:
                     # part 1: functions applicable to all groups
-                    if f=='complement': self.complement(group,i,validlabel,cands);
-                    elif f=='nakedsubset': self.nakedsubset(group,i,validlabel,cands)
-                    elif f=='hiddensubset': self.hiddensubset(group,i,validlabel,cands)
+                    if f=='complement': res += self.complement(group,i,validlabel,cands,solve=solve);
+                    elif f=='nakedsubset': res += self.nakedsubset(group,i,validlabel,cands,solve=solve)
+                    elif f=='hiddensubset': res += self.hiddensubset(group,i,validlabel,cands,solve=solve)
                     # part 2: functions applicable to rows and columns
                     elif f=='lineblockinteraction': 
                         if validlabel=='row' or validlabel=='column':
-                            self.lineblockinteraction(group,i,validlabel,cands)
+                            res += self.lineblockinteraction(group,i,validlabel,cands,solve=solve)
                     # part 3: functions applicable to blocks
                     elif f=='blocklineinteraction': 
                         if validlabel=='block':
-                            self.blocklineinteraction(group,i,cands)
+                            res += self.blocklineinteraction(group,i,cands,solve=solve)
                     elif f=='blockblockinteraction':
                         if validlabel=='block':
-                            self.blockblockhorizontalinteraction(group,i,validlabel,cands)
-                            self.blockblockverticalinteraction(group,i,validlabel,cands)
+                            res += self.blockblockhorizontalinteraction(group,i,validlabel,cands,solve=solve)
+                            res += self.blockblockverticalinteraction(group,i,validlabel,cands,solve=solve)
                     else: print('WARNING: groupfunction not recognized, skipping it; found '+str(f))
+        return res
                 
-    def complement(self,group,groupindex,label,candidates):
+    def complement(self,group,groupindex,label,candidates,solve=True):
         # BASIC solving method (group-based)
         # if only one possible position for an element is present in a group, fill it with this element
+        res = []
         for el in range(1,self.size+1):
             if el in group:
                 continue
@@ -235,11 +245,16 @@ class Sudoku:
                     indexj = j
             if npossible==1:
                 (rw,clmn) = self.getcell(label,groupindex,indexj)
-                self.setcell(rw,clmn,el)
+                res.append({'method':'complement',
+                            'infokeys':['cell','label','value'],
+                            'cell':(rw,clmn),'label':label,'value':el})
+                if solve: self.setcell(rw,clmn,el)
+        return res
     
-    def nakedsubset(self,group,groupindex,label,candidates):
+    def nakedsubset(self,group,groupindex,label,candidates,solve=True):
         # ADVANCED method (group-based)
         # if n candidate sets together contain only n numbers, remove those numbers from all other candidate sets
+        res = []
         for i in range(self.size-1):
             candsi = candidates[i]
             if len(candsi)<2: continue
@@ -253,16 +268,23 @@ class Sudoku:
                     nsubs += 1
                     subindices.append(j)
             if(nsubs==len(candsi)):
+                useful = False
                 for j in range(self.size):
                     if j not in subindices:
                         (rw,clmn) = self.getcell(label,groupindex,j)
-                        candsj = candidates[j]
                         for cand in candsi:
-                            self.removecandidate(rw,clmn,cand)
+                            if cand in self.candidates[rw][clmn]: useful = True
+                            if solve: self.removecandidate(rw,clmn,cand)
+                if useful: res.append({'method':'nakedsubset',
+                                        'infokeys':['grouplabel','groupindex','indices','values'],
+                                        'grouplabel':label,'groupindex':groupindex,
+                                        'indices':subindices,'values':candsi})
+        return res
                 
-    def hiddensubset(self,group,groupindex,label,candidates):
+    def hiddensubset(self,group,groupindex,label,candidates,solve=True):
         # ADVANCED method (group-based)
         # if a subset of n candidates is shared between exactly n cells, remove all other candidates from these cells
+        res = []
         uniquecands = []
         for candset in candidates:
             if len(candset)<2: continue
@@ -278,11 +300,18 @@ class Sudoku:
                 sub = self.issubset(subset,candidates[j])
                 if(sub==0 or sub==1): shareindices.append(j)
             if(len(subset)==len(shareindices)):
+                useful = False
                 for k in shareindices:
                     (rw,clmn) = self.getcell(label,groupindex,k)
                     for cand in range(1,self.size+1):
-                        if cand not in subset: 
-                            self.removecandidate(rw,clmn,cand)
+                        if cand not in subset:
+                            if cand in self.candidates[rw][clmn]: useful = True
+                            if solve: self.removecandidate(rw,clmn,cand)
+                if useful: res.append({'method':'hiddensubset',
+                                        'infokeys':['grouplabel','groupindex','indices','values'],
+                                        'grouplabel':label,'groupindex':groupindex,
+                                        'indices':shareindices,'values':subset})
+        return res
                    
     def issubset(self,smallist,biglist):
         # help function for nakedsubset and hiddensubset
@@ -298,9 +327,10 @@ class Sudoku:
         if nels==len(smallist): return 1
         return 0
     
-    def blocklineinteraction(self,block,blockindex,blockcands):
+    def blocklineinteraction(self,block,blockindex,blockcands,solve=True):
         # ADVANCED solving method (block-based)
         # if a candidate occurs in only one row/column within a block, remove it from the rest of the row/column
+        res = []
         for el in range(1,self.size+1):
             if el in block: continue
             firstindex = -1
@@ -321,17 +351,31 @@ class Sudoku:
                     if rw not in uniquerows: uniquerows.append(rw)
                     if clmn not in uniquecols: uniquecols.append(clmn)
             if len(uniquerows)==1:
+                useful = False
                 for clmn in range(self.size):
                     if clmn not in allcols:
-                        self.removecandidate(testrw,clmn,el)
+                        if el in self.candidates[testrw][clmn]: useful = True
+                        if solve: self.removecandidate(testrw,clmn,el)
+                if useful: res.append({'method':'blocklineinteraction',
+                                        'infokeys':['blockindex','linelabel','lineindex','value'],
+                                        'blockindex':blockindex,'linelabel':'row','lineindex':testrw,
+                                        'value':el})
             if len(uniquecols)==1:
+                useful = False
                 for rw in range(self.size):
                     if rw not in allrows:
-                        self.removecandidate(rw,testclmn,el)
+                        if el in self.candidates[rw][testclmn]: useful = True
+                        if solve: self.removecandidate(rw,testclmn,el)
+                if useful: res.append({'method':'blocklineinteraction',
+                                        'infokeys':['blockindex','linelabel','lineindex','value'],
+                                        'blockindex':blockindex,'linelabel':'column','lineindex':testclmn,
+                                        'value':el})
+        return res 
                                 
-    def lineblockinteraction(self,line,lineindex,linelabel,linecands):
+    def lineblockinteraction(self,line,lineindex,linelabel,linecands,solve=True):
         # ADVANCED solving method (row/column-based)
         # if a candidate occurs in only one block within a row/column, remove it from the rest of the block
+        res = []
         for el in range(1,self.size+1):
             if el in line: continue
             firstindex = -1
@@ -349,17 +393,28 @@ class Sudoku:
                     block = self.getblockindex(rw,clmn)
                     if block!=testblock: oneblock = False
             if oneblock:
+                useful = False
                 firstrow,firstcolumn = np.multiply(divmod(testblock,self.blocksize),self.blocksize)
                 for rw in range(firstrow,firstrow+self.blocksize):
                     for clmn in range(firstcolumn,firstcolumn+self.blocksize):
                         if((linelabel=='row' and not rw==lineindex)
                            or (linelabel=='column' and not clmn==lineindex)):
-                            self.removecandidate(rw,clmn,el)
+                            if el in self.candidates[rw][clmn]: useful = True
+                            res.append({'method':'lineblockinteraction','cell':(rw,clmn),'value':el,
+                                        'infokeys':['lineindex','linelabel','blockindex'],
+                                        'lineindex':lineindex,'linelabel':linelabel,'blockindex':testblock})
+                            if solve: self.removecandidate(rw,clmn,el)
+                if useful: res.append({'method':'lineblockinteraction',
+                                'infokeys':['lineindex','linelabel','blockindex','value'],
+                                'lineindex':lineindex,'linelabel':linelabel,'blockindex':testblock,
+                                'value':el})
+        return res
                                 
-    def blockblockhorizontalinteraction(self,group,groupindex,label,candidates):
+    def blockblockhorizontalinteraction(self,group,groupindex,label,candidates,solve=True):
         # ADVANCED solving method (block-based)
         # if a candidate occurs in only two rows in two horizontally aligned blocks, 
         # remove it from the remaining positions in those rows
+        res = []
         for i in range(self.size):
             if(i<=groupindex or self.getcell(label,i,0)[0]!=self.getcell(label,groupindex,0)[0]): continue
             groupi,candidatesi = self.getblock(i)
@@ -377,15 +432,24 @@ class Sudoku:
                         if row not in rows: rows.append(row)
                         if column not in columns: columns.append(column)
                 if len(rows)==2:
-                        for j in range(self.size):
-                            if j not in columns:
+                    useful = False
+                    for j in range(self.size):
+                        if j not in columns:
+                            if(el in self.candidates[rows[0]][j] or el in self.candidates[rows[1]][j]):
+                                useful = True
+                            if solve:
                                 self.removecandidate(rows[0],j,el)
                                 self.removecandidate(rows[1],j,el)
+                    if useful: res.append({'method':'blockblockhorizontalinteraction',
+                                            'infokeys':['block1index','block2index','value'],
+                                            'block1index':groupindex,'block2index':i,'value':el})
+        return res
         
-    def blockblockverticalinteraction(self,group,groupindex,label,candidates):
+    def blockblockverticalinteraction(self,group,groupindex,label,candidates,solve=True):
         # ADVANCED solving method (block-based)
         # if a candidate occurs in only two columns in two vertically aligned blocks, 
         # remove it from the remaining positions in those columns
+        res = []
         for i in range(self.size):
             if(i<=groupindex or self.getcell(label,i,0)[1]!=self.getcell(label,groupindex,0)[1]): continue
             groupi,candidatesi = self.getblock(i)
@@ -403,15 +467,24 @@ class Sudoku:
                         if row not in rows: rows.append(row)
                         if column not in columns: columns.append(column)
                 if len(columns)==2:
-                        for j in range(self.size):
-                            if j not in rows:
+                    useful = False
+                    for j in range(self.size):
+                        if j not in rows:
+                            if(el in self.candidates[j][columns[0]] or el in self.candidates[j][columns[1]]):
+                                useful = True
+                            if solve:
                                 self.removecandidate(j,columns[0],el)
                                 self.removecandidate(j,columns[1],el)
+                    if useful: res.append({'method':'blockblockverticalinteraction',
+                                            'infokeys':['block1index','block2index','value'],
+                                            'block1index':groupindex,'block2index':i,'value':el})
+        return res
     
-    def swordfishcolumns(self):
+    def swordfishcolumns(self,solve=True):
         # HYPERADVANCED solving method (grid-based)
         # find a swordfish pattern in the columns of the grid and eliminate suitable candidates from the rows
         # STEP 1: find all columns that have exactly two spots for a given candidate
+        res = []
         for el in range(1,self.size+1):
             cols = []
             rows = []
@@ -441,15 +514,22 @@ class Sudoku:
                 pattern = []
                 for j in colssubset:
                     for i in rows[j]:
-                            pattern.append([i,j])
+                        pattern.append([i,j])
                 # STEP 3b: remove from all positions in unique rows except swordfish
+                useful = False
                 for i in uniquerows:
                     for j in range(self.size):
-                        if([i,j] not in pattern): self.removecandidate(i,j,el)
+                        if([i,j] not in pattern): 
+                            if el in self.candidates[i][j]: useful = True
+                            if solve: self.removecandidate(i,j,el)
+                if useful: res.append({'method':'swordfishrows','infokeys':['value','pattern'],
+                                        'value':el,'pattern':pattern})
+        return res
                         
-    def swordfishrows(self):
+    def swordfishrows(self,solve=True):
         # HYPERADVANCED solving method (grid-based)
         # mirror of swordfishcolumns
+        res = []
         for el in range(1,self.size+1):
             cols = []
             rows = []
@@ -475,10 +555,15 @@ class Sudoku:
                 for i in rowssubset:
                     for j in cols[i]:
                             pattern.append([i,j])
+                useful = False
                 for j in uniquecols:
                     for i in range(self.size):
-                        if([i,j] not in pattern): self.removecandidate(i,j,el)
-                
+                        if([i,j] not in pattern): 
+                            if el in self.candidates[i][j]: useful = True
+                            if solve: self.removecandidate(i,j,el)
+                if useful: res.append({'method':'swordfishrows','infokeys':['value','pattern'],
+                                        'value':el,'pattern':pattern})
+        return res
                         
     def solve(self):
         # main method grouping all solving methods and calling them in increasing order of complexity

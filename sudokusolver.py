@@ -4,6 +4,7 @@ import os
 import numpy as np
 sys.path.insert(0,'./src')
 from sudoku import Sudoku
+from sudokuhelper import SudokuHelper
 try: 
     import Tkinter as tk
     import Tkinter.scrolledtext as scrtxt
@@ -17,8 +18,9 @@ class SudokuSolverGUI:
     def __init__(self,master):
         self.master = master
         master.title("SudokuSolver GUI")
-        
-        self.grid_frame = tk.Frame(master,height=200,width=200)
+
+        # define a frame for the sudoku cells and fill the grid        
+        self.grid_frame = tk.Frame(master,width=200)
         self.grid_frame.pack()
         
         self.gridsize = 9
@@ -29,7 +31,32 @@ class SudokuSolverGUI:
                 cell_entry = tk.Entry(self.grid_frame,font="Calibri 20",justify='center',width=2)
                 cell_entry.grid(row=i,column=j)
                 self.gridcells[i].append(cell_entry)
-                
+                self.gridcells[i][j].bind("<1>",lambda event,row=i,col=j : self.showcandidates(event,row,col))
+        
+        # define a frame for the candidate cells and create a 3D list
+        self.candidate_frame = tk.Frame(master,height=20,width=200)
+        self.candidate_frame.pack()
+
+        self.candidate_frame = tk.Frame(master,height=20,width=200)
+        self.candidate_frame.pack()
+
+        self.candidatecells = []
+        for i in range(self.gridsize):
+            self.candidatecells.append([])
+            for j in range(self.gridsize):
+                self.candidatecells[i].append([])
+                for k in range(self.gridsize):
+                    var = tk.IntVar(value=1)
+                    candidate_rbutton = tk.Checkbutton(self.candidate_frame,text=str(k+1),
+                            font="Calibri 20",justify='center',width=2,indicatoron=False,
+                            var=var,background="red",selectcolor='green')
+                    self.candidatecells[i][j].append({'button':candidate_rbutton,'var':var})
+
+        # set focus to (0,0) and show corresponding candidates
+        self.gridcells[0][0].focus()
+        for k in range(self.gridsize): self.candidatecells[0][0][k]['button'].grid(row=0,column=k)
+
+        # define q frame for the options buttons and fill it                
         self.options_frame = tk.Frame(master,width=200)
         self.options_frame.pack()
 
@@ -52,8 +79,14 @@ class SudokuSolverGUI:
         
         self.close_button = tk.Button(self.options_frame,text='Close',command=master.destroy)
         self.close_button.pack(side=tk.RIGHT)
+
+        self.hint_button = tk.Button(self.options_frame,text='Hint',command=self.hint)
+        self.hint_button.pack(side=tk.RIGHT)
+
+        self.reduce_button = tk.Button(self.options_frame,text='Reduce',command=self.reduce)
+        self.reduce_button.pack(side=tk.RIGHT)
         
-        self.messages_text = scrtxt.ScrolledText(master,width=70,height=30)
+        self.messages_text = scrtxt.ScrolledText(master,width=75,height=30)
         self.messages_text.pack()
         initstring = 'Welcome to the Sudoku Solver!\n'
         initstring += '- Click on the cells in the grid above to set the intial values \n'
@@ -62,6 +95,12 @@ class SudokuSolverGUI:
         initstring += '  (this will overwrite any previously saved grid)\n'
         initstring += '- Solve your sudoku by pressing "Solve"!\n\n'
         self.messages_text.insert(tk.INSERT,initstring)
+
+    def showcandidates(self,event,i,j):
+        for k in range(self.gridsize):
+            self.candidate_frame.grid_slaves(row=0,column=k)[0].grid_remove()
+        for k,buttondict in enumerate(self.candidatecells[i][j]):
+            buttondict['button'].grid(row=0,column=k)
 
     def getgrid(self):
         grid = np.zeros((self.gridsize,self.gridsize))
@@ -82,8 +121,45 @@ class SudokuSolverGUI:
                     return None
                 grid[i,j] = intval
         return grid
+
+    def getcandidates(self):
+        candidates = []
+        for i in range(self.gridsize):
+            candidates.append([])
+            for j in range(self.gridsize):
+                candidates[i].append([])
+                for k in range(self.gridsize):
+                    if self.candidatecells[i][j][k]['var'].get() == 1: candidates[i][j].append(k+1)
+        return candidates
+
+    def setgrid(self,grid,markfilled=False,markunfilled=False):
+        for i in range(self.gridsize):
+            for j in range(self.gridsize):
+                val = self.gridcells[i][j].get()
+                if(val==''):
+                    newval = int(grid[i,j])
+                    if newval==0:
+                        if markunfilled:
+                            self.gridcells[i][j].insert(0,'_')
+                            self.gridcells[i][j].config(foreground='red')
+                    else:
+                        self.gridcells[i][j].insert(0,str(newval))
+                        if markfilled: self.gridcells[i][j].config(foreground='green')
+
+    def setcandidates(self,candidates):
+        for i in range(self.gridsize):
+            for j in range(self.gridsize):
+                for k in range(self.gridsize):
+                    if(not k+1 in candidates[i][j] and self.candidatecells[i][j][k]['var'].get() == 1):
+                        self.candidatecells[i][j][k]['var'].set(0)
+
+    def allcellswhite(self):
+        for i in range(self.gridsize):
+            for j in range(self.gridsize):
+                self.gridcells[i][j].config({'background':'white'})
         
     def solve(self):
+        self.allcellswhite()
         message =  '[notification:] Now solving...\n'
         message += '                You can find the full log file below when done.\n\n'
         self.messages_text.insert(tk.INSERT,message)
@@ -97,19 +173,10 @@ class SudokuSolverGUI:
         message = '\n\n[notification:] '+message+'\n\n'
         self.messages_text.insert(tk.INSERT,message)
         self.messages_text.see(tk.END)
-        for i in range(self.gridsize):
-            for j in range(self.gridsize):
-                val = self.gridcells[i][j].get()
-                if(val==''): 
-                    newval = int(S.grid[i,j])
-                    if newval==0:
-                        self.gridcells[i][j].insert(0,'_')
-                        self.gridcells[i][j].config(foreground='red')
-                    else:
-                        self.gridcells[i][j].insert(0,str(newval))
-                        self.gridcells[i][j].config(foreground='green')
-            
+        self.setgrid(S.grid,markfilled=True,markunfilled=True)           
+ 
     def save(self):
+        self.allcellswhite()
         abspath = os.path.abspath(os.path.dirname(__file__))
         fullpath = os.path.join(abspath,'fls')
         filename = tk.filedialog.asksaveasfilename(initialdir=fullpath,
@@ -123,6 +190,7 @@ class SudokuSolverGUI:
         self.messages_text.see(tk.END)
         
     def load(self):
+        self.allcellswhite()
         abspath = os.path.abspath(os.path.dirname(__file__))
         fullpath = os.path.join(abspath,'fls')
         filename = tk.filedialog.askopenfilename(initialdir=fullpath,
@@ -131,30 +199,37 @@ class SudokuSolverGUI:
         try:
             grid = np.loadtxt(filename)
             self.gridsize = len(grid)
-            for i in range(self.gridsize):
-                for j in range(self.gridsize):
-                    val = grid[i,j]
-                    if(val!=0): self.gridcells[i][j].insert(0,str(int(grid[i,j])))
+            self.setgrid(grid)
             message =  '[notification:] Grid loaded successfully.\n\n'
             self.messages_text.insert(tk.INSERT,message)
             self.messages_text.see(tk.END)
         except:
             message = '[notification:] ERROR: grid could not be loaded from file.\n\n'
             self.messages_text.insert(tk.INSERT,message)
+            self.messages_text.see(tk.END)
             return None
 
     def delete(self):
+        self.allcellswhite()
         abspath = os.path.abspath(os.path.dirname(__file__))
         fullpath = os.path.join(abspath,'fls')
         filename = tk.filedialog.askopenfilename(initialdir=fullpath,
                     title='Select sudoku to remove',
                     filetypes=(('txt files','*.txt'),('all files','*.*')))
-        os.system('rm '+filename)
-        message = '[notification:] File successfully deleted.\n\n'
-        self.messages_text.insert(tk.INSERT,message)
-        self.messages_text.see(tk.END)
+        filename = str(filename)
+        if len(filename)==0: return None
+        try:
+            os.system('rm '+filename)
+            message = '[notification:] File successfully deleted.\n\n'
+            self.messages_text.insert(tk.INSERT,message)
+            self.messages_text.see(tk.END)
+        except:
+            message = '[notification:] ERROR: file could not be deleted.\n\n'
+            self.messages_text.insert(tk.INSERT,message)
+            self.messages_text.see(tk.END)
     
     def clear(self):
+        self.allcellswhite()
         for i in range(self.gridsize):
             for j in range(self.gridsize):
                 self.gridcells[i][j].delete(0,tk.END)
@@ -180,6 +255,37 @@ class SudokuSolverGUI:
         message = lf.read()
         self.messages_text.insert(tk.INSERT,message)
         self.messages_text.see(tk.END)
+
+    def hint(self):
+        self.allcellswhite()
+        grid = self.getgrid()
+        candidates = self.getcandidates()
+        S = SudokuHelper(grid,candidates,self.logfilename,newlogfile=False)
+        (hint,cells) = S.hint()
+        message = '[hint:] '+hint
+        self.messages_text.insert(tk.INSERT,message)
+        self.messages_text.see(tk.END)
+        for c in cells: self.gridcells[c[0]][c[1]].config({'background':'cyan'})
+
+    def reduce(self):
+        self.allcellswhite()
+        grid = self.getgrid()
+        candidates = self.getcandidates()
+        S = SudokuHelper(grid,candidates,self.logfilename,newlogfile=False)
+        ncands= S.ncands
+        S.reducecandidates()
+        ncandsnew = S.ncands
+        message = '[reduce:] '
+        if ncandsnew < ncands:
+            message += 'number of candidates erased: '+str(ncands-ncandsnew)+'\n\n'
+        else:
+            message += 'no additional candidates could be erased!\n\n'
+        self.setgrid(S.grid,markfilled=True,markunfilled=False)
+        self.setcandidates(S.candidates)
+        self.messages_text.insert(tk.INSERT,message)
+        self.messages_text.see(tk.END)
+        
+        
 
 root = tk.Tk()
 gui = SudokuSolverGUI(root)

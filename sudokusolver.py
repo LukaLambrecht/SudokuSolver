@@ -309,6 +309,7 @@ class SudokuSolverGUI:
         grid = self.getgrid()
         candidates = self.getcandidates()
         S = SudokuHelper(grid,candidates,self.logfilename,newlogfile=False)
+        print(S.hint())
         (message,cells) = S.hint()
         self.messages_text.insert(tk.INSERT,message)
         self.messages_text.see(tk.END)

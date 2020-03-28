@@ -118,6 +118,12 @@ class Sudoku(object):
         if(label=='row'): return self.getrow(index)
         if(label=='column'): return self.getcolumn(index)
         if(label=='block'): return self.getblock(index,index2)
+
+    def getgroupfromcell(self,label,rw,clmn):
+        # analogous to getgroup but arguments are interpreted differently
+        if(label=='row'): return self.getrow(rw)
+        if(label=='column'): return self.getcolumn(clmn)
+        if(label=='block'): return self.getblock(rw,clmn)
     
     def getcell(self,grouptype,groupindex,localindex):
         # get cell indices of element number 'localindex' of group number 'groupindex' of type 'grouptype'
@@ -583,8 +589,105 @@ class Sudoku(object):
                 if useful: res.append({'method':'swordfishrows','infokeys':['value','pattern'],
                                         'value':el,'pattern':pattern})
         return res
-                        
-    def solve(self):
+
+    def intersect(self,coords1,coords2):
+        # help function for XY wing
+        (rw1,clmn1) = coords1
+        (rw2,clmn2) = coords2
+        if rw1==rw2: return True
+        if clmn1==clmn2: return True
+        if self.getblockindex(rw1,clmn1)==self.getblockindex(rw2,clmn2): return True
+        return False
+
+    def shareone(self,cands1,cands2):
+        # help function for XY wing
+        if(cands2[0] in cands1 and not cands2[1] in cands1): return cands2[0]
+        if(cands2[0] not in cands1 and cands2[1] in cands1): return cands2[1]
+        return -1
+
+    def xywing(self,solve=True):
+        # HYPERADVANCED solving method (grid-based)
+        # find XY pattern and remove candidate from cells that intersect with both wings
+        res = []
+        for rw1 in range(self.size):
+            for clmn1 in range(self.size):
+                if not len(self.candidates[rw1][clmn1])==2: continue
+                cands1 = self.candidates[rw1][clmn1]
+                uniquecands = cp.deepcopy(self.candidates[rw1][clmn1])
+                shareone = []
+                for rw2 in range(self.size):
+                    for clmn2 in range(self.size):
+                        if not len(self.candidates[rw2][clmn2])==2: continue
+                        if not self.intersect((rw1,clmn1),(rw2,clmn2)): continue
+                        cands2 = self.candidates[rw2][clmn2]
+                        share = self.shareone(cands1,cands2)
+                        if share>0: shareone.append((rw2,clmn2))
+                if len(shareone)<2: continue
+                for c1 in range(len(shareone)-1):
+                    for c2 in range(c1+1,len(shareone)):
+                        (rw2,clmn2) = shareone[c1]
+                        (rw3,clmn3) = shareone[c2]
+                        if self.intersect((rw3,clmn3),(rw2,clmn2)): continue
+                        print(self.candidates[rw2][clmn2])
+                        print(self.candidates[rw3][clmn3])
+                        share = self.shareone(self.candidates[rw2][clmn2],
+                                                self.candidates[rw3][clmn3])
+                        print(share)
+                        if(share<0 or share in cands1): continue
+                        print(shareone)
+                        for cell in shareone: print(self.candidates[cell[0]][cell[1]])
+                        useful = False
+                        for rwa in range(self.size):
+                            for clmna in range(self.size):
+                                if(not (self.intersect((rwa,clmna),(rw2,clmn2)) 
+                                    and self.intersect((rwa,clmna),(rw3,clmn3)))): continue
+                                if(share in self.candidates[rwa][clmna]): useful = True
+                                if solve: self.removecandidate(rwa,clmna,share)
+                        if useful: res.append({'method':'xywing','infokeys':['cells','value'],
+                                                'cells':[(rw1,clmn1),(rw2,clmn2),(rw3,clmn3)],
+                                                'value':share})
+        return res
+
+    def forcingchain(self,solve=True):
+        # HYPERADVANCED solving method (grid-based)
+        # solve for all possibilities of a certain cell and check recurring patterns
+        res = []
+        for i in range(self.size):
+            for j in range(self.size):
+                cands = self.candidates[i][j]
+                if len(cands)==1: continue
+                scopies = []
+                for cand in cands:
+                    S = self.copy(self.logname,newlogfile=False)
+                    S.setcell(i,j,cand)
+                    (outputcode,_) = S.solve(userecursive=False)
+                    if outputcode == -1: continue
+                    scopies.append(S)
+                    print(str((i,j))+' -> '+str(cand)+': '+str(outputcode))
+                if len(scopies)==0: continue
+                candstoremove = cp.deepcopy(self.candidates)
+                removelist = []
+                useful = False
+                for ci in range(self.size):
+                    for cj in range(self.size):
+                        if(ci==i and cj==j): continue
+                        for scopy in scopies:
+                            for val in scopy.candidates[ci][cj]:
+                                if val in candstoremove[ci][cj]:
+                                    candstoremove[ci][cj].remove(val)
+                        if len(candstoremove[ci][cj])>0:
+                            print(str((ci,cj))+': '+str(candstoremove[ci][cj]))
+                            useful = True
+                            for val in candstoremove[ci][cj]:
+                                removelist.append((ci,cj,val))
+                                if solve: self.removecandidate(ci,cj,val)
+                if useful:
+                    res.append({'method':'forcingchain','infokeys':['cell','results'],
+                                'cell':(i,j),'results':removelist})
+        return res
+                    
+
+    def solve(self,userecursive=True):
         # main method grouping all solving methods and calling them in increasing order of complexity
         self.logfile = open(self.logname,'a')
         self.logfile.write('Start solving method on the following sudoku:\n')
@@ -629,6 +732,8 @@ class Sudoku(object):
         self.logfile.write('Start using hyperadvanced methods...\n')
         self.swordfishcolumns()
         self.swordfishrows()
+        self.xywing()
+        #if userecursive: self.forcingchain()
         self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                          'lineblockinteraction','blockblockinteraction'])
         self.reducecandidates()
@@ -638,6 +743,8 @@ class Sudoku(object):
             ncands = self.ncands
             self.swordfishcolumns()
             self.swordfishrows()
+            self.xywing()
+            #if userecursive: self.forcingchain()
             self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                              'lineblockinteraction','blockblockinteraction'])
             self.reducecandidates()
@@ -647,11 +754,12 @@ class Sudoku(object):
         self.logfile.close()
         (outputcode,message) = self.terminate()
         if outputcode!=0: return (outputcode,message)
-        # STEP 4: brute force
         self.logfile = open(self.logname,'a')
         self.logfile.write('Unable to solve sudoku with presently implemented methods...\n')
         self.logfile.write('Got up to this point: \n')
         self.logfile.write(self.tostring())
+        if not userecursive: return (outputcode,message)
+        # STEP 4: brute force methods
         self.logfile.write('Starting brute force methods...\n')
         self.logfile.close()
         (outcode,message) = self.solvebruteforce()
@@ -666,6 +774,7 @@ class Sudoku(object):
                 if(ncands<candmin and ncands>=2):
                     candmin = len(self.candidates[i][j])
                     rowmin = i; colmin = j
+        allinvalid = True
         for cand in self.candidates[rowmin][colmin]:
             self.logfile = open(self.logname,'a')
             message = 'row and column indices of cell with least candidates: '
@@ -680,6 +789,7 @@ class Sudoku(object):
             if outcode==1: 
                 self.set(S)
                 return (outcode,message)
+        if allinvalid: return (-1,'All options invalid, go one step back...')
         
     def terminate(self):
         # check termination conditions and print final output to screen

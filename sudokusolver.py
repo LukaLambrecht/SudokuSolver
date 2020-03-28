@@ -15,30 +15,47 @@ except ImportError:
     import tkinter.filedialog
 
 class SudokuSolverGUI:
+    
     def __init__(self,master):
         self.master = master
         master.title("SudokuSolver GUI")
 
+        # set global geometry parameters
+        self.grid_frame_nrow = 5
+        self.grid_frame_ncol = 1
+        self.candidate_frame_nrow = 1
+        self.candidate_frame_ncol = 1
+        self.messages_text_nrow = 1
+        self.messages_text_ncol = 3
+        self.bwidth=20
+        self.bheight=10
+
         # define a frame for the sudoku cells and fill the grid        
         self.grid_frame = tk.Frame(master,width=200)
-        self.grid_frame.pack()
+        self.grid_frame.grid(row=0,column=0,rowspan=self.grid_frame_nrow,columnspan=self.grid_frame_ncol,
+                                padx=10,pady=10)
         
         self.gridsize = 9
+        self.blocksize = 3
+        self.blockframes = []
+        for i in range(self.gridsize): 
+            self.blockframes.append(tk.LabelFrame(self.grid_frame,text='',relief='solid',borderwidth=1))
+            self.blockframes[i].grid(row=divmod(i,self.blocksize)[0],column=divmod(i,self.blocksize)[1])
         self.gridcells = []
         for i in range(self.gridsize):
             self.gridcells.append([])
             for j in range(self.gridsize):
-                cell_entry = tk.Entry(self.grid_frame,font="Calibri 20",justify='center',width=2)
-                cell_entry.grid(row=i,column=j)
+                blockn = divmod(i,self.blocksize)[0]*self.blocksize + divmod(j,self.blocksize)[0]
+                cell_entry = tk.Entry(self.blockframes[blockn],font="Calibri 20",justify='center',width=2)
+                cell_entry.grid(row=divmod(i,self.blocksize)[1],column=divmod(j,self.blocksize)[1])
                 self.gridcells[i].append(cell_entry)
                 self.gridcells[i][j].bind("<1>",lambda event,row=i,col=j : self.showcandidates(event,row,col))
         
         # define a frame for the candidate cells and create a 3D list
         self.candidate_frame = tk.Frame(master,height=20,width=200)
-        self.candidate_frame.pack()
-
-        self.candidate_frame = tk.Frame(master,height=20,width=200)
-        self.candidate_frame.pack()
+        self.candidate_frame.grid(row=self.grid_frame_nrow,column=0,
+                                    rowspan=self.candidate_frame_nrow,columnspan=self.candidate_frame_ncol,
+                                    padx=10,pady=10)
 
         self.candidatecells = []
         for i in range(self.gridsize):
@@ -53,41 +70,50 @@ class SudokuSolverGUI:
                     self.candidatecells[i][j].append({'button':candidate_rbutton,'var':var})
 
         # set focus to (0,0) and show corresponding candidates
-        self.gridcells[0][0].focus()
-        for k in range(self.gridsize): self.candidatecells[0][0][k]['button'].grid(row=0,column=k)
+        #self.gridcells[0][0].focus()
+        #for k in range(self.gridsize): self.candidatecells[0][0][k]['button'].grid(row=0,column=k)
+
+        # define mode button 
+        self.mode = tk.StringVar()
+        self.mode.set("A")
+        self.auto_button = tk.Radiobutton(master,text='Automatic',indicatoron=False,
+                                variable=self.mode,value="A",command=self.setmode)
+        self.auto_button.grid(row=0,column=1,ipadx=self.bwidth,ipady=self.bheight)
+        self.inter_button = tk.Radiobutton(master,text='Interactive',indicatoron=False,
+                                variable=self.mode,value="I",command=self.setmode)
+        self.inter_button.grid(row=0,column=2,ipadx=self.bwidth,ipady=self.bheight)
 
         # define q frame for the options buttons and fill it                
         self.options_frame = tk.Frame(master,width=200)
-        self.options_frame.pack()
+        self.options_frame.grid(row=1,column=1,rowspan=self.grid_frame_nrow-1,columnspan=2)
 
         self.logfilename = 'logs/currentlog.txt'
         
         self.solve_button = tk.Button(self.options_frame,text='Solve',command=self.solve)
-        self.solve_button.pack(side=tk.LEFT)
+        self.solve_button.grid(row=0,column=0,columnspan=2,ipadx=self.bwidth,ipady=self.bheight)
         
         self.save_button = tk.Button(self.options_frame,text='Save',command=self.save)
-        self.save_button.pack(side=tk.LEFT)
+        self.save_button.grid(row=1,column=1,ipadx=self.bwidth,ipady=self.bheight)
         
         self.load_button = tk.Button(self.options_frame,text='Load',command=self.load)
-        self.load_button.pack(side=tk.LEFT)
+        self.load_button.grid(row=1,column=0,ipadx=self.bwidth,ipady=self.bheight)
 
         self.delete_button = tk.Button(self.options_frame,text='Delete',command=self.delete)
-        self.delete_button.pack(side=tk.LEFT)
+        self.delete_button.grid(row=2,column=1,ipadx=self.bwidth,ipady=self.bheight)
         
         self.clear_button = tk.Button(self.options_frame,text='Clear',command=self.clear)
-        self.clear_button.pack(side=tk.LEFT)
+        self.clear_button.grid(row=2,column=0,ipadx=self.bwidth,ipady=self.bheight)
         
         self.close_button = tk.Button(self.options_frame,text='Close',command=master.destroy)
-        self.close_button.pack(side=tk.RIGHT)
+        self.close_button.grid(row=3,column=0,columnspan=2,ipadx=self.bwidth,ipady=self.bheight)
 
         self.hint_button = tk.Button(self.options_frame,text='Hint',command=self.hint)
-        self.hint_button.pack(side=tk.RIGHT)
 
         self.reduce_button = tk.Button(self.options_frame,text='Reduce',command=self.reduce)
-        self.reduce_button.pack(side=tk.RIGHT)
         
         self.messages_text = scrtxt.ScrolledText(master,width=75,height=30)
-        self.messages_text.pack()
+        self.messages_text.grid(row=self.grid_frame_nrow+self.candidate_frame_nrow,column=0,
+                            columnspan=3)
         initstring = 'Welcome to the Sudoku Solver!\n'
         initstring += '- Click on the cells in the grid above to set the intial values \n'
         initstring += '  or press "Load" to load a previously saved grid.\n'
@@ -96,9 +122,29 @@ class SudokuSolverGUI:
         initstring += '- Solve your sudoku by pressing "Solve"!\n\n'
         self.messages_text.insert(tk.INSERT,initstring)
 
+    def setmode(self):
+        mode = self.mode.get()
+        if mode=='A':
+            try:
+                self.hint_button.grid_forget()
+                self.reduce_button.grid_forget()
+                for wid in self.candidate_frame.grid_slaves():
+                    wid.grid_forget()
+            except: pass
+            self.solve_button.grid(row=0,column=0,columnspan=2,ipadx=self.bwidth,ipady=self.bheight)
+        elif mode=='I':
+            try:
+                self.solve_button.grid_forget()
+            except: pass
+            self.hint_button.grid(row=0,column=0,ipadx=self.bwidth,ipady=self.bheight)
+            self.reduce_button.grid(row=0,column=1,ipadx=self.bwidth,ipady=self.bheight)
+            self.gridcells[0][0].focus()
+            for k in range(self.gridsize): self.candidatecells[0][0][k]['button'].grid(row=0,column=k)
+
     def showcandidates(self,event,i,j):
-        for k in range(self.gridsize):
-            self.candidate_frame.grid_slaves(row=0,column=k)[0].grid_remove()
+        if self.mode.get()=='A': return None
+        for wid in self.candidate_frame.grid_slaves():
+            wid.grid_forget()
         for k,buttondict in enumerate(self.candidatecells[i][j]):
             buttondict['button'].grid(row=0,column=k)
 
@@ -234,6 +280,8 @@ class SudokuSolverGUI:
             for j in range(self.gridsize):
                 self.gridcells[i][j].delete(0,tk.END)
                 self.gridcells[i][j].config(foreground='black')
+                for k in range(self.gridsize):
+                    self.candidatecells[i][j][k]['var'].set(1)
         message = '[notification:] Current grid cleared. \n\n'
         self.messages_text.insert(tk.INSERT,message)
         self.messages_text.see(tk.END)
@@ -261,8 +309,7 @@ class SudokuSolverGUI:
         grid = self.getgrid()
         candidates = self.getcandidates()
         S = SudokuHelper(grid,candidates,self.logfilename,newlogfile=False)
-        (hint,cells) = S.hint()
-        message = '[hint:] '+hint
+        (message,cells) = S.hint()
         self.messages_text.insert(tk.INSERT,message)
         self.messages_text.see(tk.END)
         for c in cells: self.gridcells[c[0]][c[1]].config({'background':'cyan'})

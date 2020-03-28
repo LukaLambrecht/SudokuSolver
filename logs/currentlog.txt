@@ -1,61 +1,22 @@
 Start solving method on the following sudoku:
 - - - - - - - - - - - - - 
-|   9 1 | 8     | 6     | 
-|   8   | 6   3 |     5 | 
-|       |   1 9 |       | 
+| 2 9 1 | 8 4 5 | 6 3 7 | 
+| 7 8 4 | 6 2 3 | 9 1 5 | 
+| 6 3 5 | 7 1 9 | 8 4 2 | 
 - - - - - - - - - - - - - 
-| 8     |     4 |   9   | 
-|     2 |       | 7     | 
-|   4   | 3     |     6 | 
+| 8 7 6 | 1 5 4 | 2 9   | 
+| 3 1 2 | 9 8 6 | 7 5 4 | 
+| 5 4 9 | 3 7 2 | 1 8 6 | 
 - - - - - - - - - - - - - 
-|       | 4 6   |       | 
-| 1     | 2   7 |   6   | 
-|     7 |     8 | 3 2   | 
+| 9 2 3 | 4 6 1 | 5 7 8 | 
+| 1 5 8 | 2 3 7 | 4 6 9 | 
+| 4 6 7 | 5 9 8 | 3 2 1 | 
 - - - - - - - - - - - - - 
-number of initial candidates: 505
+number of initial candidates: 89
 Starting solving procedure using basic methods...
-number of remaining candidates 191
-number of remaining candidates 167
-number of remaining candidates 160
-number of remaining candidates 160
+number of remaining candidates 81
+number of remaining candidates 81
 Basic methods finished.
-The sudoku at this point:
-- - - - - - - - - - - - - 
-|   9 1 | 8 4   | 6     | 
-|   8 4 | 6   3 | 9 1 5 | 
-| 6     |   1 9 |       | 
-- - - - - - - - - - - - - 
-| 8   6 |     4 |   9   | 
-|     2 |     6 | 7     | 
-|   4   | 3     |     6 | 
-- - - - - - - - - - - - - 
-|       | 4 6   |       | 
-| 1 5   | 2 3 7 |   6   | 
-| 4 6 7 |     8 | 3 2   | 
-- - - - - - - - - - - - - 
-Start using more advanced methods...
-number of remaining candidates 149
-number of remaining candidates: 147
-number of remaining candidates: 147
-Advanced methods finished.
-The sudoku at this point:
-- - - - - - - - - - - - - 
-|   9 1 | 8 4   | 6     | 
-|   8 4 | 6   3 | 9 1 5 | 
-| 6     |   1 9 |       | 
-- - - - - - - - - - - - - 
-| 8   6 |     4 |   9   | 
-|     2 |     6 | 7     | 
-|   4   | 3     | 1   6 | 
-- - - - - - - - - - - - - 
-|       | 4 6 1 |       | 
-| 1 5   | 2 3 7 |   6   | 
-| 4 6 7 |     8 | 3 2 1 | 
-- - - - - - - - - - - - - 
-Start using hyperadvanced methods...
-number of remaining candidates: 81
-number of remaining candidates: 81
-Hyperadvanced methods finished.
 Sudoku was solved successfully!
 - - - - - - - - - - - - - 
 | 2 9 1 | 8 4 5 | 6 3 7 | 

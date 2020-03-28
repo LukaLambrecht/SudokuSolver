@@ -1,13 +1,15 @@
 # SudokuSolver
-Simple, lightweight and easy-to-use python program (with GUI) to solve sudokus.  
-Version 18-01-2019: basic functionality fully operational.  
+Simple, lightweight and easy-to-use python program (with GUI) to solve sudokus.
+Both interactive and fully automatic solving modes are available.  
+Version March 2020. 
 
 # How to use this program?
 - Prerequisites:  
   -- You will need the python programming language.  
      This project was developed using python 2.7, compatibility with python 3 is not (yet) guaranteed.  
-  -- The following python modules must be installed: numpy, itertools, sys, Tkinter.
-- Clone or download the files in this repository onto your local computer.  
+  -- The following python modules must be installed: numpy, itertools, os, sys, Tkinter, copy
+     (all except numpy are in the standard library).
+- Clone or download the files in this repository onto your local computer.
   No further compilation or installation is required!
 - Run the program using the command ' python sudokusolver.py '. 
 - This command will pop up a window with an empty sudoku.  

@@ -52,7 +52,6 @@ class Sudoku(object):
         self.size = S.size
         self.blocksize = S.blocksize
         self.grid = S.grid.astype(int)
-        #self.candidates = cp.deepcopy(S.candidates)
         self.candidates = [[[int(x) for x in col] for col in row] for row in S.candidates]
         self.nunfilled = S.nunfilled
         self.ncands = S.ncands
@@ -536,17 +535,11 @@ class Sudoku(object):
                         pattern.append((i,j))
                 # STEP 3b: remove from all positions in unique rows except swordfish
                 useful = False
-                print('--------')
-                print('swordfish for candidate '+str(el))
-                print('pattern:')
-                for p in pattern: print(p)
-                print('useful cells:')
                 for i in uniquerows:
                     for j in range(self.size):
                         if((i,j) not in pattern): 
                             if el in self.candidates[i][j]: 
                                 useful = True
-                                print(str([i,j]))
                             if solve: self.removecandidate(i,j,el)
                 if useful: res.append({'method':'swordfishcolumns','infokeys':['value','pattern'],
                                         'value':el,'pattern':pattern})

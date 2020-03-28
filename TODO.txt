@@ -2,10 +2,5 @@ KNOWN ISSUES OR FORESEEN IMPROVEMENTS
 - The algorithm for block-block interaction is perhaps not the most general one if self.size > 9.
 - The following algorithms were not yet implemented: XY-wing, unique rectangle.
   However, the combination of the current algorithms is already very, very powerful.
-- The content of the log file should be integrated in the GUI one way or another.
-  At this point only very minimal information is printed to the message box in the GUI.
-- Currently only one saved grid is supported which is automatially overwritten if the 'Save' button is clicked.
-  This could be generalized using a dedicated save and load window.
-- Need to implement more checks on input when using GUI.
 - Support for 4x4, 16x16, etc. grids is in principle included in the code but has not been checked yet.
   Also, this is not supported in the GUI yet.

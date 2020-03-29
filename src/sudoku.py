@@ -186,6 +186,9 @@ class Sudoku(object):
     def reducecandidates(self,solve=True):
         # BASIC solving method (element-based)
         # loop over all elements in the grid and remove candidates based on row, column and block restrictions.
+        self.logfile = open(self.logname,'a')
+        self.logfile.write('- running basic reduction method...\n')
+        self.logfile.close()
         res = []
         for i in range(self.size):
             for j in range(self.size):
@@ -254,7 +257,12 @@ class Sudoku(object):
                 res.append({'method':'complement',
                             'infokeys':['cell','label','value'],
                             'cell':(rw,clmn),'label':label,'value':el})
-                if solve: self.setcell(rw,clmn,el)
+                if solve:
+                    self.setcell(rw,clmn,el)
+                    self.logfile = open(self.logname,'a')
+                    self.logfile.write('- cell '+str((rw,clmn))+' was filled using basic ')
+                    self.logfile.write(label+' complementing.\n')
+                    self.logfile.close() 
         return res
     
     def nakedsubset(self,group,groupindex,label,candidates,solve=True):
@@ -288,6 +296,10 @@ class Sudoku(object):
                                     'infokeys':['grouplabel','groupindex','indices','values','cells'],
                                     'grouplabel':label,'groupindex':groupindex,
                                     'indices':subindices,'values':candsi,'cells':cells})
+                    if solve:
+                        self.logfile = open(self.logname,'a')
+                        self.logfile.write('- found naked subset in cells '+str(cells)+'\n')
+                        self.logfile.close()
         return res
                 
     def hiddensubset(self,group,groupindex,label,candidates,solve=True):
@@ -323,6 +335,9 @@ class Sudoku(object):
                                         'infokeys':['grouplabel','groupindex','indices','values','cells'],
                                         'grouplabel':label,'groupindex':groupindex,
                                         'indices':shareindices,'values':subset,'cells':cells})
+                    if solve:
+                        self.logfile = open(self.logname,'a')
+                        self.logfile.write('- found hidden subset in cells '+str(cells)+'\n')
         return res
                    
     def issubset(self,smallist,biglist):
@@ -375,6 +390,10 @@ class Sudoku(object):
                                         'infokeys':['blockindex','linelabel','lineindex','value','cells'],
                                         'blockindex':blockindex,'linelabel':'row','lineindex':testrw,
                                         'value':el,'cells':cells})
+                    if solve:
+                        self.logfile = open(self.logname,'a')
+                        self.logfile.write('- found block-row interaction\n')
+                        self.logfile.close()
             if len(uniquecols)==1:
                 useful = False
                 for rw in range(self.size):
@@ -388,6 +407,10 @@ class Sudoku(object):
                                         'infokeys':['blockindex','linelabel','lineindex','value','cells'],
                                         'blockindex':blockindex,'linelabel':'column','lineindex':testclmn,
                                         'value':el,'cells':cells})
+                    if solve:
+                        self.logfile = open(self.logname,'a')
+                        self.logfile.write('- found block-column interaction\n')
+                        self.logfile.close()
         return res 
                                 
     def lineblockinteraction(self,line,lineindex,linelabel,linecands,solve=True):
@@ -426,6 +449,10 @@ class Sudoku(object):
                                 'infokeys':['lineindex','linelabel','blockindex','value','cells'],
                                 'lineindex':lineindex,'linelabel':linelabel,'blockindex':testblock,
                                 'value':el,'cells':cells})
+                    if solve:
+                        self.logfile = open(self.logname,'a')
+                        self.logfile.write('- found line-block interaction\n')
+                        self.logfile.close()
         return res
                                 
     def blockblockhorizontalinteraction(self,group,groupindex,label,candidates,solve=True):
@@ -464,6 +491,10 @@ class Sudoku(object):
                         res.append({'method':'blockblockhorizontalinteraction',
                                             'infokeys':['block1index','block2index','value','cells'],
                                             'block1index':groupindex,'block2index':i,'value':el,'cells':cells})
+                        if solve:
+                            self.logfile = open(self.logname,'a')
+                            self.logfile.write('- found horizontal block-block interaction\n')
+                            self.logfile.close()
         return res
         
     def blockblockverticalinteraction(self,group,groupindex,label,candidates,solve=True):
@@ -502,6 +533,10 @@ class Sudoku(object):
                         res.append({'method':'blockblockverticalinteraction',
                                             'infokeys':['block1index','block2index','value','cells'],
                                             'block1index':groupindex,'block2index':i,'value':el,'cells':cells})
+                        if solve:
+                            self.logfile = open(self.logname,'a')
+                            self.logfile.write('- found vertical block-block interaction\n')
+                            self.logfile.close()
         return res
     
     def swordfishcolumns(self,solve=True):
@@ -547,8 +582,13 @@ class Sudoku(object):
                             if el in self.candidates[i][j]: 
                                 useful = True
                             if solve: self.removecandidate(i,j,el)
-                if useful: res.append({'method':'swordfishcolumns','infokeys':['value','pattern'],
-                                        'value':el,'pattern':pattern})
+                if useful: 
+                    res.append({'method':'swordfishcolumns','infokeys':['value','pattern'],
+                                'value':el,'pattern':pattern})
+                    if solve:
+                        self.logfile = open(self.logname,'a')
+                        self.logfile.write('- found column-wise swordfish pattern\n')
+                        self.logfile.close()
         return res
                         
     def swordfishrows(self,solve=True):
@@ -586,8 +626,13 @@ class Sudoku(object):
                         if((i,j) not in pattern): 
                             if el in self.candidates[i][j]: useful = True
                             if solve: self.removecandidate(i,j,el)
-                if useful: res.append({'method':'swordfishrows','infokeys':['value','pattern'],
-                                        'value':el,'pattern':pattern})
+                if useful: 
+                    res.append({'method':'swordfishrows','infokeys':['value','pattern'],
+                                'value':el,'pattern':pattern})
+                    if solve:
+                        self.logfile = open(self.logname,'a')
+                        self.logfile.write('- found row-wise swordfish pattern\n')
+                        self.logfile.close()
         return res
 
     def intersect(self,coords1,coords2):
@@ -628,14 +673,9 @@ class Sudoku(object):
                         (rw2,clmn2) = shareone[c1]
                         (rw3,clmn3) = shareone[c2]
                         if self.intersect((rw3,clmn3),(rw2,clmn2)): continue
-                        print(self.candidates[rw2][clmn2])
-                        print(self.candidates[rw3][clmn3])
                         share = self.shareone(self.candidates[rw2][clmn2],
                                                 self.candidates[rw3][clmn3])
-                        print(share)
                         if(share<0 or share in cands1): continue
-                        print(shareone)
-                        for cell in shareone: print(self.candidates[cell[0]][cell[1]])
                         useful = False
                         for rwa in range(self.size):
                             for clmna in range(self.size):
@@ -643,27 +683,38 @@ class Sudoku(object):
                                     and self.intersect((rwa,clmna),(rw3,clmn3)))): continue
                                 if(share in self.candidates[rwa][clmna]): useful = True
                                 if solve: self.removecandidate(rwa,clmna,share)
-                        if useful: res.append({'method':'xywing','infokeys':['cells','value'],
-                                                'cells':[(rw1,clmn1),(rw2,clmn2),(rw3,clmn3)],
-                                                'value':share})
+                        if useful: 
+                            res.append({'method':'xywing','infokeys':['cells','value'],
+                                        'cells':[(rw1,clmn1),(rw2,clmn2),(rw3,clmn3)],
+                                        'value':share})
+                            if solve:
+                                self.logfile = open(self.logname,'a')
+                                self.logfile.write('- found XY-wing\n')
+                                self.logfile.close()
         return res
 
     def forcingchain(self,solve=True):
         # HYPERADVANCED solving method (grid-based)
         # solve for all possibilities of a certain cell and check recurring patterns
         res = []
+        if solve:
+            self.logfile = open(self.logname,'a')
+            self.logfile.write('- attempting forcing chain...\n')
+            self.logfile.close()
         for i in range(self.size):
             for j in range(self.size):
                 cands = self.candidates[i][j]
                 if len(cands)==1: continue
                 scopies = []
-                for cand in cands:
-                    S = self.copy(self.logname,newlogfile=False)
+                for k,cand in enumerate(cands):
+                    S = self.copy(self.logname+'_'+str(k),newlogfile=False)
+                    if solve:
+                        self.logfile = open(self.logname,'a')
+                        self.logfile.write('    checking candidate '+str(cand)+' for cell '+str((i,j))+'\n')
+                        self.logfile.close()
                     S.setcell(i,j,cand)
-                    (outputcode,_) = S.solve(userecursive=False)
-                    if outputcode == -1: continue
+                    S.solve(userecursive=False)
                     scopies.append(S)
-                    print(str((i,j))+' -> '+str(cand)+': '+str(outputcode))
                 if len(scopies)==0: continue
                 candstoremove = cp.deepcopy(self.candidates)
                 removelist = []
@@ -676,7 +727,6 @@ class Sudoku(object):
                                 if val in candstoremove[ci][cj]:
                                     candstoremove[ci][cj].remove(val)
                         if len(candstoremove[ci][cj])>0:
-                            print(str((ci,cj))+': '+str(candstoremove[ci][cj]))
                             useful = True
                             for val in candstoremove[ci][cj]:
                                 removelist.append((ci,cj,val))
@@ -684,6 +734,10 @@ class Sudoku(object):
                 if useful:
                     res.append({'method':'forcingchain','infokeys':['cell','results'],
                                 'cell':(i,j),'results':removelist})
+        if (len(res)>0 and solve): 
+            self.logfile = open(self.logname,'a')
+            self.logfile.write('  forcing chain found recurring pattern! Continue solving...\n')
+            self.logfile.close()
         return res
                     
 
@@ -696,14 +750,20 @@ class Sudoku(object):
         self.logfile.write('number of initial candidates: '+str(ncands)+'\n')
         # STEP 1: basic methods
         self.logfile.write('Starting solving procedure using basic methods...\n')
+        self.logfile.close()
         self.reducecandidates()
         self.loopgroups(['complement'])
+        self.logfile = open(self.logname,'a')
         self.logfile.write('number of remaining candidates '+str(self.ncands)+'\n')
+        self.logfile.close()
         while self.ncands < ncands:
             ncands = self.ncands
             self.reducecandidates()
             self.loopgroups(['complement'])
+            self.logfile = open(self.logname,'a')
             self.logfile.write('number of remaining candidates '+str(self.ncands)+'\n')
+            self.logfile.close()
+        self.logfile = open(self.logname,'a')
         self.logfile.write('Basic methods finished.\n')
         self.logfile.close()
         (outputcode,message) = self.terminate()
@@ -711,18 +771,24 @@ class Sudoku(object):
         # STEP 2: advanced methods
         self.logfile = open(self.logname,'a')
         self.logfile.write('Start using more advanced methods...\n')
+        self.logfile.close()
         self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                          'lineblockinteraction','blockblockinteraction'])
         self.reducecandidates()
         self.loopgroups(['complement'])
+        self.logfile = open(self.logname,'a')
         self.logfile.write('number of remaining candidates '+str(self.ncands)+'\n')
+        self.logfile.close()
         while self.ncands < ncands:
             ncands = self.ncands
             self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                          'lineblockinteraction','blockblockinteraction'])
             self.reducecandidates()
             self.loopgroups(['complement'])
+            self.logfile = open(self.logname,'a')
             self.logfile.write('number of remaining candidates: '+str(self.ncands)+'\n')
+            self.logfile.close()
+        self.logfile = open(self.logname,'a')
         self.logfile.write('Advanced methods finished.\n')
         self.logfile.close()
         (outputcode,message) = self.terminate()
@@ -730,26 +796,34 @@ class Sudoku(object):
         # STEP 3: hyperadvanced methods
         self.logfile = open(self.logname,'a')
         self.logfile.write('Start using hyperadvanced methods...\n')
+        self.logfile.close()
         self.swordfishcolumns()
         self.swordfishrows()
         self.xywing()
-        #if userecursive: self.forcingchain()
+        if userecursive: self.forcingchain()
         self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                          'lineblockinteraction','blockblockinteraction'])
         self.reducecandidates()
         self.loopgroups(['complement'])
+        self.logfile = open(self.logname,'a')
         self.logfile.write('number of remaining candidates: '+str(self.ncands)+'\n')
+        self.logfile.close()
+        (outputcode,message) = self.terminate()
+        if outputcode!=0: return (outputcode,message)
         while self.ncands < ncands:
             ncands = self.ncands
             self.swordfishcolumns()
             self.swordfishrows()
             self.xywing()
-            #if userecursive: self.forcingchain()
+            if userecursive: self.forcingchain()
             self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                              'lineblockinteraction','blockblockinteraction'])
             self.reducecandidates()
             self.loopgroups(['complement'])
+            self.logfile = open(self.logname,'a')
             self.logfile.write('number of remaining candidates: '+str(self.ncands)+'\n')
+            self.logfile.close()
+        self.logfile = open(self.logname,'a')
         self.logfile.write('Hyperadvanced methods finished.\n')
         self.logfile.close()
         (outputcode,message) = self.terminate()

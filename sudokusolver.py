@@ -9,7 +9,6 @@ try:
     import Tkinter as tk
     import ScrolledText as scrtxt
     import tkFileDialog as fldlg
-    print('finally here')
 except ImportError: 
     import tkinter as tk
     import tkinter.scrolledtext as scrtxt

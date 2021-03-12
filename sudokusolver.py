@@ -5,14 +5,15 @@ import numpy as np
 sys.path.insert(0,'./src')
 from sudoku import Sudoku
 from sudokuhelper import SudokuHelper
-try: 
+try:
     import Tkinter as tk
-    import Tkinter.scrolledtext as scrtxt
-    import tkinter.filedialog
+    import ScrolledText as scrtxt
+    import tkFileDialog as fldlg
+    print('finally here')
 except ImportError: 
     import tkinter as tk
     import tkinter.scrolledtext as scrtxt
-    import tkinter.filedialog
+    import tkinter.filedialog as fldlg
 
 class SudokuSolverGUI:
     
@@ -225,7 +226,7 @@ class SudokuSolverGUI:
         self.allcellswhite()
         abspath = os.path.abspath(os.path.dirname(__file__))
         fullpath = os.path.join(abspath,'fls')
-        filename = tk.filedialog.asksaveasfilename(initialdir=fullpath,
+        filename = fldlg.asksaveasfilename(initialdir=fullpath,
                     title='Save sudoku')
         filename = filename.rstrip('.txt')+'.txt'
         grid = self.getgrid()
@@ -239,7 +240,7 @@ class SudokuSolverGUI:
         self.allcellswhite()
         abspath = os.path.abspath(os.path.dirname(__file__))
         fullpath = os.path.join(abspath,'fls')
-        filename = tk.filedialog.askopenfilename(initialdir=fullpath,
+        filename = fldlg.askopenfilename(initialdir=fullpath,
                     title='Select sudoku to load',
                     filetypes=(('txt files','*.txt'),('all files','*.*')))
         try:
@@ -259,7 +260,7 @@ class SudokuSolverGUI:
         self.allcellswhite()
         abspath = os.path.abspath(os.path.dirname(__file__))
         fullpath = os.path.join(abspath,'fls')
-        filename = tk.filedialog.askopenfilename(initialdir=fullpath,
+        filename = fldlg.askopenfilename(initialdir=fullpath,
                     title='Select sudoku to remove',
                     filetypes=(('txt files','*.txt'),('all files','*.*')))
         filename = str(filename)

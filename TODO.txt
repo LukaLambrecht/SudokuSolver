@@ -1,6 +1,10 @@
 KNOWN ISSUES OR FORESEEN IMPROVEMENTS
 - The algorithm for block-block interaction is perhaps not the most general one if self.size > 9.
-- The following algorithms were not yet implemented: XY-wing, unique rectangle.
-  However, the combination of the current algorithms is already very, very powerful.
-- Support for 4x4, 16x16, etc. grids is in principle included in the code but has not been checked yet.
-  Also, this is not supported in the GUI yet.
+- The following algorithms were not yet implemented: unique rectangle.
+  However, the combination of the current algorithms is already very powerful.
+- Support for 4x4, 16x16, etc. grids is in principle included in the code but has not been checked yet. Also, this is not supported in the GUI yet.
+- Check imports and GUI behaviour on different platforms and python versions.
+- Fix stuck state when trying to solve invalid sudoku (e.g. after pressing 'solve' to soon).
+  -> not actually stuck, finishes after a long time, but window is unresponsive during solving
+- Find way to display solving log synchronously (related to above)
+- Detect when sudoku is solved when in interactive mode.

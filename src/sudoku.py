@@ -161,7 +161,8 @@ class Sudoku(object):
             return self.setcell(rowindex,columnindex,self.candidates[rowindex][columnindex][0])
     
     def isvalid(self):
-        # check if a sudoku grid does not contain contradictions so far; zeros (unfilled cells) are ignored.
+        # check if a sudoku grid does not contain contradictions so far; 
+        # zeros (unfilled cells) are ignored.
         for i in range(self.size):
             if not self.groupisvalid(self.getrow(i)[0]):
                 return False
@@ -172,7 +173,8 @@ class Sudoku(object):
         return True
             
     def groupisvalid(self,group):
-        # help function for isvalid; check if a group does not contain any contradictions; zeros are ignored.
+        # help function for isvalid; check if a group does not contain any contradictions; 
+        # zeros are ignored.
         containslist = []
         for i in group:
             if i == 0:
@@ -182,6 +184,10 @@ class Sudoku(object):
             else:
                 containslist.append(i)
         return True
+
+    def issolved(self):
+        # check if a sudoku is solved
+        return (self.isvalid() and self.nunfilled==0)
     
     def reducecandidates(self,solve=True):
         # BASIC solving method (element-based)
@@ -712,8 +718,12 @@ class Sudoku(object):
                         self.logfile = open(self.logname,'a')
                         self.logfile.write('    checking candidate '+str(cand)+' for cell '+str((i,j))+'\n')
                         self.logfile.close()
+                        print('    checking candidate '+str(cand)+' for cell '+str((i,j))+'\n')
                     S.setcell(i,j,cand)
-                    S.solve(userecursive=False)
+                    # call solver on the sudoku but disable forcing chain method,
+                    # since only one level of 'guessing' is allowed
+                    # (else it is equivalent to brute force)
+                    S.solve(useforcingchain=False)
                     scopies.append(S)
                 if len(scopies)==0: continue
                 candstoremove = cp.deepcopy(self.candidates)
@@ -741,8 +751,16 @@ class Sudoku(object):
         return res
                     
 
-    def solve(self,userecursive=True):
-        # main method grouping all solving methods and calling them in increasing order of complexity
+    def solve(self,useforcingchain=True,usebruteforce=False,recursiondepth=0):
+        ### main method grouping all solving methods 
+        ### and calling them in increasing order of complexity
+        # - useforcingchain: boolean whether to use forcing chain method
+        #   (is set to false when calling solve from forcing chain 
+        #    since only one recursion level allowed)
+        # - usebruteforce: boolean whether to use brute force method
+        # - recursiondepth: int representing level of recursion,
+        #   in order to prevent infinite recursion loop for insolvable sudokus
+        #   (only used for brute force solving method)
         self.logfile = open(self.logname,'a')
         self.logfile.write('Start solving method on the following sudoku:\n')
         self.logfile.write(self.tostring())
@@ -800,7 +818,9 @@ class Sudoku(object):
         self.swordfishcolumns()
         self.swordfishrows()
         self.xywing()
-        if userecursive: self.forcingchain()
+        print('before forcingchain')
+        if useforcingchain: self.forcingchain()
+        print('after forcingchain')
         self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                          'lineblockinteraction','blockblockinteraction'])
         self.reducecandidates()
@@ -810,12 +830,13 @@ class Sudoku(object):
         self.logfile.close()
         (outputcode,message) = self.terminate()
         if outputcode!=0: return (outputcode,message)
+        print('before loop')
         while self.ncands < ncands:
             ncands = self.ncands
             self.swordfishcolumns()
             self.swordfishrows()
             self.xywing()
-            if userecursive: self.forcingchain()
+            if useforcingchain: self.forcingchain()
             self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                              'lineblockinteraction','blockblockinteraction'])
             self.reducecandidates()
@@ -823,6 +844,7 @@ class Sudoku(object):
             self.logfile = open(self.logname,'a')
             self.logfile.write('number of remaining candidates: '+str(self.ncands)+'\n')
             self.logfile.close()
+        print('after loop')
         self.logfile = open(self.logname,'a')
         self.logfile.write('Hyperadvanced methods finished.\n')
         self.logfile.close()
@@ -832,14 +854,16 @@ class Sudoku(object):
         self.logfile.write('Unable to solve sudoku with presently implemented methods...\n')
         self.logfile.write('Got up to this point: \n')
         self.logfile.write(self.tostring())
-        if not userecursive: return (outputcode,message)
+        if not usebruteforce: return (outputcode,message)
         # STEP 4: brute force methods
+        print(recursiondepth)
+        if recursiondepth>10: return (outputcode,message)
         self.logfile.write('Starting brute force methods...\n')
         self.logfile.close()
-        (outcode,message) = self.solvebruteforce()
+        (outcode,message) = self.solvebruteforce(recursiondepth=recursiondepth)
         return (outcode,message)
 
-    def solvebruteforce(self):
+    def solvebruteforce(self,recursiondepth=0):
         # fill a cell by random guessing and recursively call solver
         rowmin = 0; colmin = 0; candmin = self.size+1
         for i in range(self.size):
@@ -859,7 +883,7 @@ class Sudoku(object):
             self.logfile.close()
             S = self.copy(self.logname,newlogfile=False)
             S.setcell(rowmin,colmin,cand)
-            (outcode,message) = S.solve()
+            (outcode,message) = S.solve(usebruteforce=True,recursiondepth=recursiondepth+1)
             if outcode==1: 
                 self.set(S)
                 return (outcode,message)

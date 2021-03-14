@@ -32,30 +32,36 @@ class SudokuSolverGUI:
 
         # define a frame for the sudoku cells and fill the grid        
         self.grid_frame = tk.Frame(master,width=200)
-        self.grid_frame.grid(row=0,column=0,rowspan=self.grid_frame_nrow,columnspan=self.grid_frame_ncol,
-                                padx=10,pady=10)
+        self.grid_frame.grid(row=0,column=0,
+                             rowspan=self.grid_frame_nrow,columnspan=self.grid_frame_ncol,
+                             padx=10,pady=10)
         
         self.gridsize = 9
         self.blocksize = 3
         self.blockframes = []
         for i in range(self.gridsize): 
-            self.blockframes.append(tk.LabelFrame(self.grid_frame,text='',relief='solid',borderwidth=1))
-            self.blockframes[i].grid(row=divmod(i,self.blocksize)[0],column=divmod(i,self.blocksize)[1])
+            self.blockframes.append(tk.LabelFrame(self.grid_frame,text='',
+                                    relief='solid',borderwidth=1))
+            self.blockframes[i].grid(row=divmod(i,self.blocksize)[0],
+                                     column=divmod(i,self.blocksize)[1])
         self.gridcells = []
         for i in range(self.gridsize):
             self.gridcells.append([])
             for j in range(self.gridsize):
                 blockn = divmod(i,self.blocksize)[0]*self.blocksize + divmod(j,self.blocksize)[0]
-                cell_entry = tk.Entry(self.blockframes[blockn],font="Calibri 20",justify='center',width=2)
+                cell_entry = tk.Entry(self.blockframes[blockn],font="Calibri 20",
+                                        justify='center',width=2)
                 cell_entry.grid(row=divmod(i,self.blocksize)[1],column=divmod(j,self.blocksize)[1])
                 self.gridcells[i].append(cell_entry)
-                self.gridcells[i][j].bind("<1>",lambda event,row=i,col=j : self.showcandidates(event,row,col))
+                self.gridcells[i][j].bind("<1>",lambda event,row=i,col=j : 
+                                            self.showcandidates(event,row,col))
         
         # define a frame for the candidate cells and create a 3D list
         self.candidate_frame = tk.Frame(master,height=20,width=200)
         self.candidate_frame.grid(row=self.grid_frame_nrow,column=0,
-                                    rowspan=self.candidate_frame_nrow,columnspan=self.candidate_frame_ncol,
-                                    padx=10,pady=10)
+                                  rowspan=self.candidate_frame_nrow,
+                                  columnspan=self.candidate_frame_ncol,
+                                  padx=10,pady=10)
 
         self.candidatecells = []
         for i in range(self.gridsize):
@@ -83,7 +89,7 @@ class SudokuSolverGUI:
                                 variable=self.mode,value="I",command=self.setmode)
         self.inter_button.grid(row=0,column=2,ipadx=self.bwidth,ipady=self.bheight)
 
-        # define q frame for the options buttons and fill it                
+        # define a frame for the buttons and fill it                
         self.options_frame = tk.Frame(master,width=200)
         self.options_frame.grid(row=1,column=1,rowspan=self.grid_frame_nrow-1,columnspan=2)
 
@@ -210,6 +216,7 @@ class SudokuSolverGUI:
         message += '                You can find the full log file below when done.\n\n'
         self.messages_text.insert(tk.INSERT,message)
         self.messages_text.see(tk.END)
+        root.update() # needed for displaying text synchronously
         self.makelog()
         grid = self.getgrid()
         if grid is None: return None
@@ -322,14 +329,20 @@ class SudokuSolverGUI:
         S = SudokuHelper(grid,candidates,self.logfilename,newlogfile=False)
         ncands= S.ncands
         S.reducecandidates()
+        self.setgrid(S.grid,markfilled=True,markunfilled=False)
+        self.setcandidates(S.candidates)
+        if S.issolved():
+            (outputcode,message) = S.terminate()
+            message = '\n\n[notification:] '+message+'\n\n'
+            self.messages_text.insert(tk.INSERT,message)
+            self.messages_text.see(tk.END)
+            return 
         ncandsnew = S.ncands
         message = '[reduce:] '
         if ncandsnew < ncands:
             message += 'number of candidates erased: '+str(ncands-ncandsnew)+'\n\n'
         else:
             message += 'no additional candidates could be erased!\n\n'
-        self.setgrid(S.grid,markfilled=True,markunfilled=False)
-        self.setcandidates(S.candidates)
         self.messages_text.insert(tk.INSERT,message)
         self.messages_text.see(tk.END)
         

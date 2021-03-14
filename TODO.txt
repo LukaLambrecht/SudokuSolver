@@ -6,5 +6,4 @@ KNOWN ISSUES OR FORESEEN IMPROVEMENTS
 - Check imports and GUI behaviour on different platforms and python versions.
 - Fix stuck state when trying to solve invalid sudoku (e.g. after pressing 'solve' to soon).
   -> not actually stuck, finishes after a long time, but window is unresponsive during solving
-- Find way to display solving log synchronously (related to above)
-- Detect when sudoku is solved when in interactive mode.
+  -> find way to make window responsive (e.g. abort button)

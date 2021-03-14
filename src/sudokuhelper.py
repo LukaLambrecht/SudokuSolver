@@ -4,8 +4,9 @@ import copy as cp
 
 class SudokuHelper(Sudoku):
 
-    def __init__(self,grid,candidates,logfilename,newlogfile=True):
-        super(SudokuHelper,self).__init__(grid,logfilename,newlogfile)
+    def __init__(self,grid,candidates,verbose=True,logfilename=None,appendlogfile=False):
+        super(SudokuHelper,self).__init__(grid,verbose=verbose,
+                                            logfilename=logfilename,appendlogfile=appendlogfile)
         self.candidates = cp.deepcopy(candidates)
         self.ncands = 0
         for i in range(self.size):

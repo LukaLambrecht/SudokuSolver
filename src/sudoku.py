@@ -3,10 +3,23 @@ import numpy as np
 import itertools
 import copy as cp
 import sys
+import os
 
 class Sudoku(object):
-    def __init__(self,startgrid,logfilename,newlogfile=True):
-        # intializer: assign dimension, starting grid and other useful variables
+    ### sudoku object with solving methods
+
+    def __init__(self,startgrid,verbose=True,logfilename=None,appendlogfile=False):
+        ### intializer: assign dimension, starting grid and other useful variables
+        # input arguments:
+        # - starting grid: a 2D square numpy array (dimension d), with values between 0 and d
+        #   (use 0 for unknown values in the grid)
+        # - verbose: boolean whether to do printing during solving
+        # - logfilename: path to a log file where a record of solving procedures will be kept
+        #   (same info as printed to screen if verbose is true) (default: no log file)
+        # - appendlogfile: boolean whether to append to log file (if it exists) or overwrite it
+        #   (ignored if logfilename is None)
+
+        # check validity of starting grid
         if 'numpy.ndarray' not in str(type(startgrid)):
             print('ERROR: starting grid (type numpy array) required for initialization!')
             print('       Instead, found object of type '+str(type(startgrid)))
@@ -14,9 +27,13 @@ class Sudoku(object):
         if len(startgrid.shape)!=2 or startgrid.shape[0]!=startgrid.shape[1]:
             print('ERROR: starting grid has wrong dimensions!')
             print('       Found shape '+str(startgrid.shape))
+            sys.exit()
         if np.sqrt(startgrid.shape[0])-int(np.sqrt(startgrid.shape[0]))>1e-12:
             print('ERROR: only proper squares are supported as grid size!')
+            print('       Found shape '+str(startgrid.shape))
             sys.exit()
+
+        # intialize grid properties
         self.size = startgrid.shape[0] # size of the square grid
         self.blocksize = int(np.sqrt(self.size)) # size of a single block
         self.grid = startgrid.astype(int) # 2D-grid with values (0 means unfilled)
@@ -33,14 +50,34 @@ class Sudoku(object):
                     self.candidates[i][j] = [self.grid[i,j]]
                     self.nunfilled -= 1
                     self.ncands -= 8
-        self.logname = logfilename # log file to keep track of solving procedure
-        if newlogfile: self.logfile = open(self.logname,'w') # create file
-        else: self.logfile = open(self.logname,'a')
-        self.logfile.close() # close file for safety (open it only just before writing)
 
-    def copy(self,logfilename,newlogfile=True):
-        # make a deep copy of an entire sudoku
-        S = Sudoku(np.zeros((self.size,self.size)),logfilename,newlogfile)
+        # intialize log file
+        self.doprint = verbose
+        self.dolog = False
+        self.logname = None
+        if logfilename is not None:
+            self.dolog = True
+            self.logname = logfilename # log file to keep track of solving procedure
+            if(appendlogfile and os.path.exists(logfilename)): 
+                self.logfile = open(self.logname,'a') # check if opening for appending works
+            else: 
+                self.logfile = open(self.logname,'w') # create file
+            self.logfile.close()
+
+    def writemessage(self,message):
+        # write a message to log file and/or stdout
+        if self.dolog:
+            self.logfile = open(self.logname,'a')
+            self.logfile.write(message+'\n')
+            self.logfile.close()
+        if self.doprint:
+            print(message)
+
+    def copy(self,logfilename=None,appendlogfile=False):
+        # make a deep copy of a sudoku grid
+        # potentially with different log file
+        S = Sudoku(np.zeros((self.size,self.size)),verbose=self.doprint,logfilename=logfilename,
+                    appendlogfile=appendlogfile)
         S.grid = np.copy(self.grid)
         S.candidates = cp.deepcopy(self.candidates)
         S.nunfilled = self.nunfilled
@@ -48,13 +85,15 @@ class Sudoku(object):
         return S
 
     def set(self,S):
-        # set self to a deepcopy of S (log file is shared) 
+        # set self to a deepcopy of S (log file is shared)
         self.size = S.size
         self.blocksize = S.blocksize
         self.grid = S.grid.astype(int)
         self.candidates = [[[int(x) for x in col] for col in row] for row in S.candidates]
         self.nunfilled = S.nunfilled
         self.ncands = S.ncands
+        self.doprint = S.doprint
+        self.dolog = S.dolog
         self.logname = S.logname
         
     def getgrid(self):
@@ -191,10 +230,11 @@ class Sudoku(object):
     
     def reducecandidates(self,solve=True):
         # BASIC solving method (element-based)
-        # loop over all elements in the grid and remove candidates based on row, column and block restrictions.
-        self.logfile = open(self.logname,'a')
-        self.logfile.write('- running basic reduction method...\n')
-        self.logfile.close()
+        # loop over all elements in the grid and remove candidates 
+        # based on row, column and block restrictions.
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
+        if solve: self.writemessage('- running basic reduction method...')
         res = []
         for i in range(self.size):
             for j in range(self.size):
@@ -212,8 +252,10 @@ class Sudoku(object):
                     
     def loopgroups(self,groupfunctions,labels=['row','column','block'],solve=True):
         # generic looper over all groups in the grid
-        # groupfunctions is a list of function to be called on each group
-        # labels is a list of types of groups to loop over, default all groups
+        # input arguments:
+        # - groupfunctions is a list of function to be called on each group
+        # - labels is a list of types of groups to loop over, default all groups
+        # - solve: boolean whether to modify the grid or only return hint
         labels = labels[:] # copy to local variable since it might be altered
         groupfunctions = groupfunctions[:] # see above
         validlabels = []
@@ -247,7 +289,10 @@ class Sudoku(object):
                 
     def complement(self,group,groupindex,label,candidates,solve=True):
         # BASIC solving method (group-based)
-        # if only one possible position for an element is present in a group, fill it with this element
+        # if only one possible position for an element is present in a group, 
+        # fill it with this element
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
         res = []
         for el in range(1,self.size+1):
             if el in group:
@@ -265,15 +310,16 @@ class Sudoku(object):
                             'cell':(rw,clmn),'label':label,'value':el})
                 if solve:
                     self.setcell(rw,clmn,el)
-                    self.logfile = open(self.logname,'a')
-                    self.logfile.write('- cell '+str((rw,clmn))+' was filled using basic ')
-                    self.logfile.write(label+' complementing.\n')
-                    self.logfile.close() 
+                    self.writemessage('- cell '+str((rw,clmn))+' was filled using basic '
+                                        +str(label)+' complementing.')
         return res
     
     def nakedsubset(self,group,groupindex,label,candidates,solve=True):
         # ADVANCED method (group-based)
-        # if n candidate sets together contain only n numbers, remove those numbers from all other candidate sets
+        # if n candidate sets together contain only n numbers, 
+        # remove those numbers from all other candidate sets
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
         res = []
         for i in range(self.size-1):
             candsi = candidates[i]
@@ -303,14 +349,15 @@ class Sudoku(object):
                                     'grouplabel':label,'groupindex':groupindex,
                                     'indices':subindices,'values':candsi,'cells':cells})
                     if solve:
-                        self.logfile = open(self.logname,'a')
-                        self.logfile.write('- found naked subset in cells '+str(cells)+'\n')
-                        self.logfile.close()
+                        self.writemessage('- found naked subset in cells '+str(cells))
         return res
                 
     def hiddensubset(self,group,groupindex,label,candidates,solve=True):
         # ADVANCED method (group-based)
-        # if a subset of n candidates is shared between exactly n cells, remove all other candidates from these cells
+        # if a subset of n candidates is shared between exactly n cells, 
+        # remove all other candidates from these cells
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
         res = []
         uniquecands = []
         for candset in candidates:
@@ -342,8 +389,7 @@ class Sudoku(object):
                                         'grouplabel':label,'groupindex':groupindex,
                                         'indices':shareindices,'values':subset,'cells':cells})
                     if solve:
-                        self.logfile = open(self.logname,'a')
-                        self.logfile.write('- found hidden subset in cells '+str(cells)+'\n')
+                        self.writemessage('- found hidden subset in cells '+str(cells))
         return res
                    
     def issubset(self,smallist,biglist):
@@ -362,7 +408,10 @@ class Sudoku(object):
     
     def blocklineinteraction(self,block,blockindex,blockcands,solve=True):
         # ADVANCED solving method (block-based)
-        # if a candidate occurs in only one row/column within a block, remove it from the rest of the row/column
+        # if a candidate occurs in only one row/column within a block, 
+        # remove it from the rest of the row/column
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
         res = []
         for el in range(1,self.size+1):
             if el in block: continue
@@ -397,9 +446,7 @@ class Sudoku(object):
                                         'blockindex':blockindex,'linelabel':'row','lineindex':testrw,
                                         'value':el,'cells':cells})
                     if solve:
-                        self.logfile = open(self.logname,'a')
-                        self.logfile.write('- found block-row interaction\n')
-                        self.logfile.close()
+                        self.writemessage('- found block-row interaction')
             if len(uniquecols)==1:
                 useful = False
                 for rw in range(self.size):
@@ -414,14 +461,15 @@ class Sudoku(object):
                                         'blockindex':blockindex,'linelabel':'column','lineindex':testclmn,
                                         'value':el,'cells':cells})
                     if solve:
-                        self.logfile = open(self.logname,'a')
-                        self.logfile.write('- found block-column interaction\n')
-                        self.logfile.close()
+                        self.writemessage('- found block-column interaction')
         return res 
                                 
     def lineblockinteraction(self,line,lineindex,linelabel,linecands,solve=True):
         # ADVANCED solving method (row/column-based)
-        # if a candidate occurs in only one block within a row/column, remove it from the rest of the block
+        # if a candidate occurs in only one block within a row/column, 
+        # remove it from the rest of the block
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
         res = []
         for el in range(1,self.size+1):
             if el in line: continue
@@ -456,15 +504,15 @@ class Sudoku(object):
                                 'lineindex':lineindex,'linelabel':linelabel,'blockindex':testblock,
                                 'value':el,'cells':cells})
                     if solve:
-                        self.logfile = open(self.logname,'a')
-                        self.logfile.write('- found line-block interaction\n')
-                        self.logfile.close()
+                        self.writemessage('- found line-block interaction')
         return res
                                 
     def blockblockhorizontalinteraction(self,group,groupindex,label,candidates,solve=True):
         # ADVANCED solving method (block-based)
         # if a candidate occurs in only two rows in two horizontally aligned blocks, 
         # remove it from the remaining positions in those rows
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
         res = []
         for i in range(self.size):
             if(i<=groupindex or self.getcell(label,i,0)[0]!=self.getcell(label,groupindex,0)[0]): continue
@@ -498,15 +546,15 @@ class Sudoku(object):
                                             'infokeys':['block1index','block2index','value','cells'],
                                             'block1index':groupindex,'block2index':i,'value':el,'cells':cells})
                         if solve:
-                            self.logfile = open(self.logname,'a')
-                            self.logfile.write('- found horizontal block-block interaction\n')
-                            self.logfile.close()
+                            self.writemessage('- found horizontal block-block interaction')
         return res
         
     def blockblockverticalinteraction(self,group,groupindex,label,candidates,solve=True):
         # ADVANCED solving method (block-based)
         # if a candidate occurs in only two columns in two vertically aligned blocks, 
         # remove it from the remaining positions in those columns
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
         res = []
         for i in range(self.size):
             if(i<=groupindex or self.getcell(label,i,0)[1]!=self.getcell(label,groupindex,0)[1]): continue
@@ -528,26 +576,29 @@ class Sudoku(object):
                     useful = False
                     for j in range(self.size):
                         if j not in rows:
-                            if(el in self.candidates[j][columns[0]] or el in self.candidates[j][columns[1]]):
+                            if(el in self.candidates[j][columns[0]] 
+                                or el in self.candidates[j][columns[1]]):
                                 useful = True
                             if solve:
                                 self.removecandidate(j,columns[0],el)
                                 self.removecandidate(j,columns[1],el)
                     if useful:
                         cells = []
-                        for j in range(self.size): cells.append((j,columns[0])); cells.append((j,columns[1])) 
+                        for j in range(self.size): 
+                            cells.append((j,columns[0])); cells.append((j,columns[1]))
                         res.append({'method':'blockblockverticalinteraction',
-                                            'infokeys':['block1index','block2index','value','cells'],
-                                            'block1index':groupindex,'block2index':i,'value':el,'cells':cells})
+                                    'infokeys':['block1index','block2index','value','cells'],
+                                    'block1index':groupindex,'block2index':i,'value':el,'cells':cells})
                         if solve:
-                            self.logfile = open(self.logname,'a')
-                            self.logfile.write('- found vertical block-block interaction\n')
-                            self.logfile.close()
+                            self.writemessage('- found vertical block-block interaction')
         return res
     
     def swordfishcolumns(self,solve=True):
         # HYPERADVANCED solving method (grid-based)
-        # find a swordfish pattern in the columns of the grid and eliminate suitable candidates from the rows
+        # find a swordfish pattern in the columns of the grid 
+        # and eliminate suitable candidates from the rows
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
         # STEP 1: find all columns that have exactly two spots for a given candidate
         res = []
         for el in range(1,self.size+1):
@@ -592,9 +643,7 @@ class Sudoku(object):
                     res.append({'method':'swordfishcolumns','infokeys':['value','pattern'],
                                 'value':el,'pattern':pattern})
                     if solve:
-                        self.logfile = open(self.logname,'a')
-                        self.logfile.write('- found column-wise swordfish pattern\n')
-                        self.logfile.close()
+                        self.writemessage('- found column-wise swordfish pattern')
         return res
                         
     def swordfishrows(self,solve=True):
@@ -636,9 +685,7 @@ class Sudoku(object):
                     res.append({'method':'swordfishrows','infokeys':['value','pattern'],
                                 'value':el,'pattern':pattern})
                     if solve:
-                        self.logfile = open(self.logname,'a')
-                        self.logfile.write('- found row-wise swordfish pattern\n')
-                        self.logfile.close()
+                        self.writemessage('- found row-wise swordfish pattern')
         return res
 
     def intersect(self,coords1,coords2):
@@ -659,6 +706,8 @@ class Sudoku(object):
     def xywing(self,solve=True):
         # HYPERADVANCED solving method (grid-based)
         # find XY pattern and remove candidate from cells that intersect with both wings
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
         res = []
         for rw1 in range(self.size):
             for clmn1 in range(self.size):
@@ -694,31 +743,28 @@ class Sudoku(object):
                                         'cells':[(rw1,clmn1),(rw2,clmn2),(rw3,clmn3)],
                                         'value':share})
                             if solve:
-                                self.logfile = open(self.logname,'a')
-                                self.logfile.write('- found XY-wing\n')
-                                self.logfile.close()
+                                self.writemessage('- found XY-wing')
         return res
 
     def forcingchain(self,solve=True):
         # HYPERADVANCED solving method (grid-based)
         # solve for all possibilities of a certain cell and check recurring patterns
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
         res = []
         if solve:
-            self.logfile = open(self.logname,'a')
-            self.logfile.write('- attempting forcing chain...\n')
-            self.logfile.close()
+            self.writemessage('- attempting forcing chain...')
+
         for i in range(self.size):
             for j in range(self.size):
                 cands = self.candidates[i][j]
                 if len(cands)==1: continue
                 scopies = []
                 for k,cand in enumerate(cands):
-                    S = self.copy(self.logname+'_'+str(k),newlogfile=False)
+                    S = self.copy(logfilename=self.logname+'_'+str(k),appendlogfile=True)
                     if solve:
-                        self.logfile = open(self.logname,'a')
-                        self.logfile.write('    checking candidate '+str(cand)+' for cell '+str((i,j))+'\n')
-                        self.logfile.close()
-                        print('    checking candidate '+str(cand)+' for cell '+str((i,j))+'\n')
+                        self.writemessage('    checking candidate '+str(cand)
+                                            +' for cell '+str((i,j)))
                     S.setcell(i,j,cand)
                     # call solver on the sudoku but disable forcing chain method,
                     # since only one level of 'guessing' is allowed
@@ -744,10 +790,10 @@ class Sudoku(object):
                 if useful:
                     res.append({'method':'forcingchain','infokeys':['cell','results'],
                                 'cell':(i,j),'results':removelist})
+                    if solve:
+                        self.writemessage('  forcing chain found recurring pattern!')
         if (len(res)>0 and solve): 
-            self.logfile = open(self.logname,'a')
-            self.logfile.write('  forcing chain found recurring pattern! Continue solving...\n')
-            self.logfile.close()
+            self.writemessage('  forcing chain finished, continue regular solving...')
         return res
                     
 
@@ -761,76 +807,52 @@ class Sudoku(object):
         # - recursiondepth: int representing level of recursion,
         #   in order to prevent infinite recursion loop for insolvable sudokus
         #   (only used for brute force solving method)
-        self.logfile = open(self.logname,'a')
-        self.logfile.write('Start solving method on the following sudoku:\n')
-        self.logfile.write(self.tostring())
+        self.writemessage('Start solving method on the following sudoku:'+'\n'+self.tostring())
         ncands = self.ncands # use ncands to keep track of changes made by each method
-        self.logfile.write('number of initial candidates: '+str(ncands)+'\n')
+        self.writemessage('number of initial candidates: '+str(ncands))
         # STEP 1: basic methods
-        self.logfile.write('Starting solving procedure using basic methods...\n')
-        self.logfile.close()
+        self.writemessage('Starting solving procedure using basic methods...')
         self.reducecandidates()
         self.loopgroups(['complement'])
-        self.logfile = open(self.logname,'a')
-        self.logfile.write('number of remaining candidates '+str(self.ncands)+'\n')
-        self.logfile.close()
+        self.writemessage('number of remaining candidates '+str(self.ncands))
         while self.ncands < ncands:
             ncands = self.ncands
             self.reducecandidates()
             self.loopgroups(['complement'])
-            self.logfile = open(self.logname,'a')
-            self.logfile.write('number of remaining candidates '+str(self.ncands)+'\n')
-            self.logfile.close()
-        self.logfile = open(self.logname,'a')
-        self.logfile.write('Basic methods finished.\n')
-        self.logfile.close()
+            self.writemessage('number of remaining candidates '+str(self.ncands))
+        self.writemessage('Basic methods finished.\n')
         (outputcode,message) = self.terminate()
         if outputcode!=0: return (outputcode,message)
         # STEP 2: advanced methods
-        self.logfile = open(self.logname,'a')
-        self.logfile.write('Start using more advanced methods...\n')
-        self.logfile.close()
+        self.writemessage('Start using more advanced methods...')
         self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                          'lineblockinteraction','blockblockinteraction'])
         self.reducecandidates()
         self.loopgroups(['complement'])
-        self.logfile = open(self.logname,'a')
-        self.logfile.write('number of remaining candidates '+str(self.ncands)+'\n')
-        self.logfile.close()
+        self.writemessage('number of remaining candidates '+str(self.ncands))
         while self.ncands < ncands:
             ncands = self.ncands
             self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                          'lineblockinteraction','blockblockinteraction'])
             self.reducecandidates()
             self.loopgroups(['complement'])
-            self.logfile = open(self.logname,'a')
-            self.logfile.write('number of remaining candidates: '+str(self.ncands)+'\n')
-            self.logfile.close()
-        self.logfile = open(self.logname,'a')
-        self.logfile.write('Advanced methods finished.\n')
-        self.logfile.close()
+            self.writemessage('number of remaining candidates: '+str(self.ncands))
+        self.writemessage('Advanced methods finished.')
         (outputcode,message) = self.terminate()
         if outputcode!=0: return (outputcode,message)
         # STEP 3: hyperadvanced methods
-        self.logfile = open(self.logname,'a')
-        self.logfile.write('Start using hyperadvanced methods...\n')
-        self.logfile.close()
+        self.writemessage('Start using hyperadvanced methods...')
         self.swordfishcolumns()
         self.swordfishrows()
         self.xywing()
-        print('before forcingchain')
         if useforcingchain: self.forcingchain()
-        print('after forcingchain')
         self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                          'lineblockinteraction','blockblockinteraction'])
         self.reducecandidates()
         self.loopgroups(['complement'])
-        self.logfile = open(self.logname,'a')
-        self.logfile.write('number of remaining candidates: '+str(self.ncands)+'\n')
-        self.logfile.close()
+        self.writemessage('number of remaining candidates: '+str(self.ncands))
         (outputcode,message) = self.terminate()
         if outputcode!=0: return (outputcode,message)
-        print('before loop')
         while self.ncands < ncands:
             ncands = self.ncands
             self.swordfishcolumns()
@@ -841,25 +863,19 @@ class Sudoku(object):
                              'lineblockinteraction','blockblockinteraction'])
             self.reducecandidates()
             self.loopgroups(['complement'])
-            self.logfile = open(self.logname,'a')
-            self.logfile.write('number of remaining candidates: '+str(self.ncands)+'\n')
-            self.logfile.close()
-        print('after loop')
-        self.logfile = open(self.logname,'a')
-        self.logfile.write('Hyperadvanced methods finished.\n')
-        self.logfile.close()
+            self.writemessage('number of remaining candidates: '+str(self.ncands))
+        self.writemessage('Hyperadvanced methods finished.')
         (outputcode,message) = self.terminate()
         if outputcode!=0: return (outputcode,message)
-        self.logfile = open(self.logname,'a')
-        self.logfile.write('Unable to solve sudoku with presently implemented methods...\n')
-        self.logfile.write('Got up to this point: \n')
-        self.logfile.write(self.tostring())
+        self.writemessage('Unable to solve sudoku with presently implemented methods...\n'
+                            +'Got up to this point: \n'
+                            +self.tostring())
         if not usebruteforce: return (outputcode,message)
         # STEP 4: brute force methods
-        print(recursiondepth)
-        if recursiondepth>10: return (outputcode,message)
-        self.logfile.write('Starting brute force methods...\n')
-        self.logfile.close()
+        if recursiondepth>10: 
+            self.writemessage('maximum recursion depth reached')
+            return (outputcode,message)
+        self.writemessage('Starting brute force methods...')
         (outcode,message) = self.solvebruteforce(recursiondepth=recursiondepth)
         return (outcode,message)
 
@@ -874,14 +890,12 @@ class Sudoku(object):
                     rowmin = i; colmin = j
         allinvalid = True
         for cand in self.candidates[rowmin][colmin]:
-            self.logfile = open(self.logname,'a')
-            message = 'row and column indices of cell with least candidates: '
-            message += str(rowmin)+','+str(colmin)+'\n'
-            message += 'candidates are: '+str(self.candidates[rowmin][colmin])+'\n'
-            message += 'now trying: '+str(cand)+'\n'
-            self.logfile.write(message)
-            self.logfile.close()
-            S = self.copy(self.logname,newlogfile=False)
+            self.writemessage(
+                'row and column indices of cell with least candidates: '
+                + str(rowmin)+','+str(colmin)+'\n'
+                + 'candidates are: '+str(self.candidates[rowmin][colmin])+'\n'
+                + 'now trying: '+str(cand)+'\n')
+            S = self.copy(logfilename=self.logname,appendlogfile=True)
             S.setcell(rowmin,colmin,cand)
             (outcode,message) = S.solve(usebruteforce=True,recursiondepth=recursiondepth+1)
             if outcode==1: 
@@ -895,24 +909,18 @@ class Sudoku(object):
         #       -1: invalid sudoku detected, stop processing
         #       0: sudoku partially solved, continue processing
         #       1: sudoku fully solved, stop processing
-        self.logfile = open(self.logname,'a')
         if not self.isvalid():
             message = 'ERROR: sudoku is invalid \n'
             message += '-> when running in brute force mode, this is part of the standard workflow \n'
             message += '-> if not, check solving methods for bugs or input for typos!\n'
-            self.logfile.write(message)
-            self.logfile.close()
+            self.writemessage(message)
             return (-1,message)
         if self.nunfilled==0:
-            message = 'Sudoku was solved successfully!\n'
-            self.logfile.write(message)
-            self.logfile.write(self.tostring())
-            self.logfile.close()
+            message = 'Sudoku was solved successfully!\n'+self.tostring()
+            self.writemessage(message)
             return (1,message)
-        message = 'The sudoku at this point:\n'
-        self.logfile.write(message)
-        self.logfile.write(self.tostring())
-        self.logfile.close()
+        message = 'The sudoku at this point:\n'+self.tostring()
+        self.writemessage(message)
         return (0,message)
     
     def tostring(self):

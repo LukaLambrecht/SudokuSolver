@@ -14,6 +14,23 @@ except ImportError:
     import tkinter.scrolledtext as scrtxt
     import tkinter.filedialog as fldlg
 
+class StdOutRedirector:
+    ### helper class to redirect print output to GUI widget
+    # use as follows:
+    #   stdout = sys.stdout
+    #   sys.stdout = StdOutRedirector(<some widget>)
+    #   ... <some code execution containing print statements>
+    #   sys.stdout = stdout
+
+    def __init__(self,tk_text_widget,tk_root_object):
+        self.text_dump = tk_text_widget
+        self.root = tk_root_object
+
+    def write(self,text):
+        self.text_dump.insert(tk.INSERT, text)
+        self.text_dump.see(tk.END)
+        self.root.update()
+
 class SudokuSolverGUI:
     
     def __init__(self,master):
@@ -212,6 +229,7 @@ class SudokuSolverGUI:
         
     def solve(self):
         self.allcellswhite()
+        # display a message that solving will start
         message =  '[notification:] Now solving...\n'
         message += '                You can find the full log file below when done.\n\n'
         self.messages_text.insert(tk.INSERT,message)
@@ -220,9 +238,15 @@ class SudokuSolverGUI:
         self.makelog()
         grid = self.getgrid()
         if grid is None: return None
-        S = Sudoku(grid,self.logfilename,newlogfile=False)
+        # redirect sys.stdout to text widget
+        stdout = sys.stdout
+        sys.stdout = StdOutRedirector(self.messages_text,root)
+        # make a Sudoku object and solve it
+        S = Sudoku(grid,logfilename=self.logfilename)
         (outputcode,message) = S.solve()
-        self.readlog()
+        # reset sys.stdout
+        sys.stdout = stdout
+        #self.readlog()
         message = '\n\n[notification:] '+message+'\n\n'
         self.messages_text.insert(tk.INSERT,message)
         self.messages_text.see(tk.END)
@@ -315,8 +339,7 @@ class SudokuSolverGUI:
         self.allcellswhite()
         grid = self.getgrid()
         candidates = self.getcandidates()
-        S = SudokuHelper(grid,candidates,self.logfilename,newlogfile=False)
-        print(S.hint())
+        S = SudokuHelper(grid,candidates,logfilename=self.logfilename,appendlogfile=True)
         (message,cells) = S.hint()
         self.messages_text.insert(tk.INSERT,message)
         self.messages_text.see(tk.END)
@@ -326,7 +349,7 @@ class SudokuSolverGUI:
         self.allcellswhite()
         grid = self.getgrid()
         candidates = self.getcandidates()
-        S = SudokuHelper(grid,candidates,self.logfilename,newlogfile=False)
+        S = SudokuHelper(grid,candidates,logfilename=self.logfilename,appendlogfile=True)
         ncands= S.ncands
         S.reducecandidates()
         self.setgrid(S.grid,markfilled=True,markunfilled=False)

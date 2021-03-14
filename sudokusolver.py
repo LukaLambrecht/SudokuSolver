@@ -250,7 +250,7 @@ class SudokuSolverGUI:
         message = '\n\n[notification:] '+message+'\n\n'
         self.messages_text.insert(tk.INSERT,message)
         self.messages_text.see(tk.END)
-        self.setgrid(S.grid,markfilled=True,markunfilled=True)           
+        self.setgrid(S.grid,markfilled=True,markunfilled=True)
  
     def save(self):
         self.allcellswhite()

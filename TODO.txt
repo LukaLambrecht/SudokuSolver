@@ -4,6 +4,5 @@ KNOWN ISSUES OR FORESEEN IMPROVEMENTS
   However, the combination of the current algorithms is already very powerful.
 - Support for 4x4, 16x16, etc. grids is in principle included in the code but has not been checked yet. Also, this is not supported in the GUI yet.
 - Check imports and GUI behaviour on different platforms and python versions.
-- Fix stuck state when trying to solve invalid sudoku (e.g. after pressing 'solve' to soon).
-  -> not actually stuck, finishes after a long time, but window is unresponsive during solving
-  -> find way to make window responsive (e.g. abort button)
+- Implement abort button when solving is taking too long (e.g. when pressing solve to soon)
+  (currently the Close button works in this situation, but it would be nice to stay in gui instead of closing it and continue working on the same sudoku)

@@ -74,7 +74,7 @@ class SudokuSolverGUI:
                                             self.showcandidates(event,row,col))
         
         # define a frame for the candidate cells and create a 3D list
-        self.candidate_frame = tk.Frame(master,height=20,width=200)
+        self.candidate_frame = tk.Frame(master,height=30,width=200)
         self.candidate_frame.grid(row=self.grid_frame_nrow,column=0,
                                   rowspan=self.candidate_frame_nrow,
                                   columnspan=self.candidate_frame_ncol,
@@ -134,7 +134,7 @@ class SudokuSolverGUI:
 
         self.reduce_button = tk.Button(self.options_frame,text='Reduce',command=self.reduce)
         
-        self.messages_text = scrtxt.ScrolledText(master,width=75,height=30)
+        self.messages_text = scrtxt.ScrolledText(master,width=75,height=25)
         self.messages_text.grid(row=self.grid_frame_nrow+self.candidate_frame_nrow,column=0,
                             columnspan=3)
         initstring = 'Welcome to the Sudoku Solver!\n'

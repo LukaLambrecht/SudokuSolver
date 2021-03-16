@@ -6,7 +6,7 @@ Version March 2021.
 # How to use this program?
 - Prerequisites:  
   -- You will need the python programming language.  
-     This project was developed using python 2.7, compatibility with python 3 is not (yet) guaranteed.  
+     This project was developed and tested using python 2.7, but it should work with python 3 as well (tested in 3.8).
   -- The following python modules must be installed: numpy, itertools, os, sys, Tkinter, copy  
      (all except numpy are in the standard library so should be installed if you have python).
 - Clone or download the files in this repository onto your local computer.  

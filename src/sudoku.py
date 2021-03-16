@@ -45,7 +45,7 @@ class Sudoku(object):
             for j in range(self.size):
                 self.candidates[i].append([])
                 if self.grid[i,j] == 0:
-                    self.candidates[i][j] = range(1,self.size+1)
+                    self.candidates[i][j] = list(range(1,self.size+1))
                 else:
                     self.candidates[i][j] = [self.grid[i,j]]
                     self.nunfilled -= 1

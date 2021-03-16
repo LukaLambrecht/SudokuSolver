@@ -63,6 +63,17 @@ class Sudoku(object):
             else: 
                 self.logfile = open(self.logname,'w') # create file
             self.logfile.close()
+			
+        # initialize flag used for aborting solving process
+        self.contin = True
+		
+    def setbreak(self):
+        # set continue parameter to false
+        self.contin = False
+		
+    def setcontinue(self):
+        # set continue parameter to true
+        self.contin = True
 
     def writemessage(self,message):
         # write a message to log file and/or stdout
@@ -82,6 +93,7 @@ class Sudoku(object):
         S.candidates = cp.deepcopy(self.candidates)
         S.nunfilled = self.nunfilled
         S.ncands = self.ncands
+        S.contin = self.contin
         return S
 
     def set(self,S):
@@ -713,7 +725,6 @@ class Sudoku(object):
             for clmn1 in range(self.size):
                 if not len(self.candidates[rw1][clmn1])==2: continue
                 cands1 = self.candidates[rw1][clmn1]
-                uniquecands = cp.deepcopy(self.candidates[rw1][clmn1])
                 shareone = []
                 for rw2 in range(self.size):
                     for clmn2 in range(self.size):
@@ -761,6 +772,8 @@ class Sudoku(object):
                 if len(cands)==1: continue
                 scopies = []
                 for k,cand in enumerate(cands):
+                    # special abortion check
+                    if not self.contin: return [-1] 
                     S = self.copy(logfilename=self.logname+'_'+str(k),appendlogfile=True)
                     if solve:
                         self.writemessage('    checking candidate '+str(cand)
@@ -807,6 +820,7 @@ class Sudoku(object):
         # - recursiondepth: int representing level of recursion,
         #   in order to prevent infinite recursion loop for insolvable sudokus
         #   (only used for brute force solving method)
+
         self.writemessage('Start solving method on the following sudoku:'+'\n'+self.tostring())
         ncands = self.ncands # use ncands to keep track of changes made by each method
         self.writemessage('number of initial candidates: '+str(ncands))
@@ -845,7 +859,8 @@ class Sudoku(object):
         self.swordfishcolumns()
         self.swordfishrows()
         self.xywing()
-        if useforcingchain: self.forcingchain()
+        forcingchainres = []
+        if useforcingchain: forcingchainres = self.forcingchain()
         self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                          'lineblockinteraction','blockblockinteraction'])
         self.reducecandidates()
@@ -858,12 +873,17 @@ class Sudoku(object):
             self.swordfishcolumns()
             self.swordfishrows()
             self.xywing()
-            if useforcingchain: self.forcingchain()
+            if useforcingchain: forcingchainres = self.forcingchain()
             self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                              'lineblockinteraction','blockblockinteraction'])
             self.reducecandidates()
             self.loopgroups(['complement'])
             self.writemessage('number of remaining candidates: '+str(self.ncands))
+        if( len(forcingchainres)==1 and isinstance(forcingchainres[0],int) and forcingchainres[0]<0 ):
+            message = 'Solving method was aborted!\n'
+            message += 'The sudoku at this point:\n'+self.tostring()
+            self.writemessage(message)
+            return (0,message)
         self.writemessage('Hyperadvanced methods finished.')
         (outputcode,message) = self.terminate()
         if outputcode!=0: return (outputcode,message)

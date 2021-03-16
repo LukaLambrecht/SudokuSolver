@@ -36,6 +36,9 @@ class SudokuSolverGUI:
     def __init__(self,master):
         self.master = master
         master.title("SudokuSolver GUI")
+		
+        # allow to have a Sudoku object as gui attribute
+        self.sudoku = None
 
         # set global geometry parameters
         self.grid_frame_nrow = 5
@@ -113,7 +116,10 @@ class SudokuSolverGUI:
         self.logfilename = 'logs/currentlog.txt'
         
         self.solve_button = tk.Button(self.options_frame,text='Solve',command=self.solve)
-        self.solve_button.grid(row=0,column=0,columnspan=2,ipadx=self.bwidth,ipady=self.bheight)
+        self.solve_button.grid(row=0,column=0,ipadx=self.bwidth,ipady=self.bheight)
+		
+        self.abort_button = tk.Button(self.options_frame,text='Abort',command=self.abort)
+        self.abort_button.grid(row=0,column=1,ipadx=self.bwidth,ipady=self.bheight)
         
         self.save_button = tk.Button(self.options_frame,text='Save',command=self.save)
         self.save_button.grid(row=1,column=1,ipadx=self.bwidth,ipady=self.bheight)
@@ -177,6 +183,7 @@ class SudokuSolverGUI:
             for j in range(self.gridsize):
                 val = self.gridcells[i][j].get()
                 if(val==''): continue
+                if(val=='_'): continue
                 message =  '[notification:] ERROR: invalid value found in input grid: '+str(val)+'\n\n'
                 try:
                     intval = int(val)
@@ -242,15 +249,20 @@ class SudokuSolverGUI:
         stdout = sys.stdout
         sys.stdout = StdOutRedirector(self.messages_text,root)
         # make a Sudoku object and solve it
-        S = Sudoku(grid,logfilename=self.logfilename)
-        (outputcode,message) = S.solve()
+        self.sudoku = Sudoku(grid,logfilename=self.logfilename)
+        (outputcode,message) = self.sudoku.solve()
         # reset sys.stdout
         sys.stdout = stdout
         #self.readlog()
         message = '\n\n[notification:] '+message+'\n\n'
         self.messages_text.insert(tk.INSERT,message)
         self.messages_text.see(tk.END)
-        self.setgrid(S.grid,markfilled=True,markunfilled=True)
+        self.setgrid(self.sudoku.grid,markfilled=True,markunfilled=True)
+		
+    def abort(self):
+        if self.sudoku is None: return
+        if not isinstance(self.sudoku,Sudoku): return
+        self.sudoku.setbreak()
  
     def save(self):
         self.allcellswhite()

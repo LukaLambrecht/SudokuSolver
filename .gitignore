@@ -1,0 +1,8 @@
+# ignore compiled python code
+**.pyc
+
+# ignore logs
+logs
+
+# ignore saved files
+fls/*.txt

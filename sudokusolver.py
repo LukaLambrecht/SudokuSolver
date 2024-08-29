@@ -122,23 +122,26 @@ class SudokuSolverGUI:
         self.abort_button.grid(row=0,column=1,ipadx=self.bwidth,ipady=self.bheight)
         
         self.save_button = tk.Button(self.options_frame,text='Save',command=self.save)
-        self.save_button.grid(row=1,column=1,ipadx=self.bwidth,ipady=self.bheight)
+        self.save_button.grid(row=2,column=1,ipadx=self.bwidth,ipady=self.bheight)
         
         self.load_button = tk.Button(self.options_frame,text='Load',command=self.load)
-        self.load_button.grid(row=1,column=0,ipadx=self.bwidth,ipady=self.bheight)
+        self.load_button.grid(row=2,column=0,ipadx=self.bwidth,ipady=self.bheight)
 
         self.delete_button = tk.Button(self.options_frame,text='Delete',command=self.delete)
-        self.delete_button.grid(row=2,column=1,ipadx=self.bwidth,ipady=self.bheight)
+        self.delete_button.grid(row=3,column=1,ipadx=self.bwidth,ipady=self.bheight)
         
         self.clear_button = tk.Button(self.options_frame,text='Clear',command=self.clear)
-        self.clear_button.grid(row=2,column=0,ipadx=self.bwidth,ipady=self.bheight)
+        self.clear_button.grid(row=3,column=0,ipadx=self.bwidth,ipady=self.bheight)
         
         self.close_button = tk.Button(self.options_frame,text='Close',command=master.destroy)
-        self.close_button.grid(row=3,column=0,columnspan=2,ipadx=self.bwidth,ipady=self.bheight)
+        self.close_button.grid(row=4,column=0,columnspan=2,ipadx=self.bwidth,ipady=self.bheight)
 
         self.hint_button = tk.Button(self.options_frame,text='Hint',command=self.hint)
 
         self.reduce_button = tk.Button(self.options_frame,text='Reduce',command=self.reduce)
+
+        self.show_candidate_window_button = tk.Button(self.options_frame,text='Show candidates',
+                                                      command=self.show_candidate_window)
         
         self.messages_text = scrtxt.ScrolledText(master,width=75,height=25)
         self.messages_text.grid(row=self.grid_frame_nrow+self.candidate_frame_nrow,column=0,
@@ -157,16 +160,20 @@ class SudokuSolverGUI:
             try:
                 self.hint_button.grid_forget()
                 self.reduce_button.grid_forget()
+                self.show_candidate_window_button.forget()
                 for wid in self.candidate_frame.grid_slaves():
                     wid.grid_forget()
             except: pass
             self.solve_button.grid(row=0,column=0,ipadx=self.bwidth,ipady=self.bheight)
+            self.abort_button.grid(row=0,column=1,ipadx=self.bwidth,ipady=self.bheight)
         elif mode=='I':
             try:
                 self.solve_button.grid_forget()
             except: pass
             self.hint_button.grid(row=0,column=0,ipadx=self.bwidth,ipady=self.bheight)
             self.reduce_button.grid(row=0,column=1,ipadx=self.bwidth,ipady=self.bheight)
+            self.show_candidate_window_button.grid(row=1,column=0,columnspan=2,
+                    ipadx=self.bwidth,ipady=self.bheight)
             self.gridcells[0][0].focus()
             for k in range(self.gridsize): self.candidatecells[0][0][k]['button'].grid(row=0,column=k)
 
@@ -176,6 +183,42 @@ class SudokuSolverGUI:
             wid.grid_forget()
         for k,buttondict in enumerate(self.candidatecells[i][j]):
             buttondict['button'].grid(row=0,column=k)
+
+    def show_candidate_window(self):
+        ### open a separate window with all remaining candidates nicely shown
+        # create a window
+        window = tk.Toplevel(self.master)
+        window.title('Remaining candidates')
+        # create a frame
+        candidates_frame = tk.Frame(window, width=200)
+        candidates_frame.grid(row=0,column=0)
+        # create the frames (for solid lines around boxes)
+        blockframes = []
+        for i in range(self.gridsize):
+            blockframes.append(tk.LabelFrame(candidates_frame,
+                                 text='',
+                                 relief='solid',
+                                 borderwidth=1))
+            blockframes[i].grid(row=divmod(i,self.blocksize)[0],
+                                column=divmod(i,self.blocksize)[1])
+        # get candidates and find maximum length
+        candidates = self.getcandidates()
+        lens = []
+        for i in range(self.gridsize):
+            for j in range(self.gridsize):
+                lens.append(len(candidates[i][j]))
+        maxlen = max(lens)
+        txtlen = maxlen*2-1
+        # make and fill the text boxes
+        for i in range(self.gridsize):
+            for j in range(self.gridsize):
+                blockn = divmod(i,self.blocksize)[0]*self.blocksize + divmod(j,self.blocksize)[0]
+                label = tk.Text(blockframes[blockn], font="Calibri 15", height=1, width=txtlen)
+                thiscandidates = candidates[i][j]
+                cstr = ' '.join([str(el) for el in thiscandidates])
+                label.insert(tk.END, cstr)
+                label.config(state=tk.DISABLED)
+                label.grid(row=divmod(i,self.blocksize)[1],column=divmod(j,self.blocksize)[1])
 
     def getgrid(self):
         grid = np.zeros((self.gridsize,self.gridsize))

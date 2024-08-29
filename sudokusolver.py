@@ -160,7 +160,7 @@ class SudokuSolverGUI:
                 for wid in self.candidate_frame.grid_slaves():
                     wid.grid_forget()
             except: pass
-            self.solve_button.grid(row=0,column=0,columnspan=2,ipadx=self.bwidth,ipady=self.bheight)
+            self.solve_button.grid(row=0,column=0,ipadx=self.bwidth,ipady=self.bheight)
         elif mode=='I':
             try:
                 self.solve_button.grid_forget()

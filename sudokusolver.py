@@ -1,10 +1,9 @@
-# imports
+### imports
+
+# external modules
 import sys
 import os
 import numpy as np
-sys.path.insert(0,'./src')
-from sudoku import Sudoku
-from sudokuhelper import SudokuHelper
 try:
     import Tkinter as tk
     import ScrolledText as scrtxt
@@ -13,6 +12,12 @@ except ImportError:
     import tkinter as tk
     import tkinter.scrolledtext as scrtxt
     import tkinter.filedialog as fldlg
+
+# local modules
+sys.path.insert(0, os.path.abspath('./src'))
+from sudoku import Sudoku
+from sudokuhelper import SudokuHelper
+
 
 class StdOutRedirector:
     ### helper class to redirect print output to GUI widget
@@ -31,14 +36,27 @@ class StdOutRedirector:
         self.text_dump.see(tk.END)
         self.root.update()
 
+
+def bflayout(bf):
+    ### helper function for setting the layout of a button frame
+    bf.config(
+      width = 250,
+      pady = 5,
+      padx = 5,
+      #borderwidth = 1,
+      #relief = tk.RIDGE
+    )
+
+
 class SudokuSolverGUI:
     
     def __init__(self,master):
         self.master = master
         master.title("SudokuSolver GUI")
 		
-        # allow to have a Sudoku object as gui attribute
+        # non-widget attributes
         self.sudoku = None
+        self.logfilename = 'logs/currentlog.txt'
 
         # set global geometry parameters
         self.grid_frame_nrow = 5
@@ -47,8 +65,10 @@ class SudokuSolverGUI:
         self.candidate_frame_ncol = 1
         self.messages_text_nrow = 1
         self.messages_text_ncol = 3
-        self.bwidth=20
-        self.bheight=10
+        self.bpadx = 20
+        self.bpady = 10
+        self.bwidth = 10
+        self.bheight = 1
 
         # define a frame for the sudoku cells and fill the grid        
         self.grid_frame = tk.Frame(master,width=200)
@@ -99,52 +119,84 @@ class SudokuSolverGUI:
         #self.gridcells[0][0].focus()
         #for k in range(self.gridsize): self.candidatecells[0][0][k]['button'].grid(row=0,column=k)
 
-        # define mode button 
+        # define several frames for the action buttons
+        # overall frame to group all sub-frames with buttons
+        self.buttons_frame = tk.Frame(master, width=200)
+        self.buttons_frame.grid(row=0, column=1, rowspan=self.grid_frame_nrow)
+
+        # frame for mode button
+        self.mode_frame = tk.Frame(self.buttons_frame)
+        bflayout(self.mode_frame)
+        self.mode_frame.grid(row=0, column=0)
+        
         self.mode = tk.StringVar()
         self.mode.set("A")
-        self.auto_button = tk.Radiobutton(master,text='Automatic',indicatoron=False,
-                                variable=self.mode,value="A",command=self.setmode)
-        self.auto_button.grid(row=0,column=1,ipadx=self.bwidth,ipady=self.bheight)
-        self.inter_button = tk.Radiobutton(master,text='Interactive',indicatoron=False,
-                                variable=self.mode,value="I",command=self.setmode)
-        self.inter_button.grid(row=0,column=2,ipadx=self.bwidth,ipady=self.bheight)
-
-        # define a frame for the buttons and fill it                
-        self.options_frame = tk.Frame(master,width=200)
-        self.options_frame.grid(row=1,column=1,rowspan=self.grid_frame_nrow-1,columnspan=2)
-
-        self.logfilename = 'logs/currentlog.txt'
         
-        self.solve_button = tk.Button(self.options_frame,text='Solve',command=self.solve)
-        self.solve_button.grid(row=0,column=0,ipadx=self.bwidth,ipady=self.bheight)
+        self.mode_frame_label = tk.Label(self.mode_frame, text='Mode')
+        self.mode_frame_label.grid(row=0, column=0, columnspan=2)
+        
+        self.auto_button = tk.Radiobutton(self.mode_frame, text='Automatic', indicatoron=False,
+                                variable=self.mode, value="A", command=self.setmode,
+                                width=self.bwidth, height=self.bheight)
+        self.auto_button.grid(row=1, column=0, ipadx=self.bpadx, ipady=self.bpady)
+        
+        self.inter_button = tk.Radiobutton(self.mode_frame, text='Interactive', indicatoron=False,
+                                variable=self.mode, value="I", command=self.setmode,
+                                width=self.bwidth, height=self.bheight)
+        self.inter_button.grid(row=1,column=1, ipadx=self.bpadx, ipady=self.bpady)
+
+        # frame for solving or related actions (depending on automatic or interactive mode)
+        self.solve_frame = tk.Frame(self.buttons_frame)
+        bflayout(self.solve_frame)
+        self.solve_frame.grid(row=1, column=0)
+
+        self.solve_frame_label = tk.Label(self.solve_frame, text='Solving')
+        self.solve_frame_label.grid(row=0, column=0, columnspan=2)
+
+        self.solve_button = tk.Button(self.solve_frame, text='Solve', command=self.solve)
+        self.solve_button.grid(row=1, column=0, ipadx=self.bpadx, ipady=self.bpady)
 		
-        self.abort_button = tk.Button(self.options_frame,text='Abort',command=self.abort)
-        self.abort_button.grid(row=0,column=1,ipadx=self.bwidth,ipady=self.bheight)
-        
-        self.save_button = tk.Button(self.options_frame,text='Save',command=self.save)
-        self.save_button.grid(row=2,column=1,ipadx=self.bwidth,ipady=self.bheight)
-        
-        self.load_button = tk.Button(self.options_frame,text='Load',command=self.load)
-        self.load_button.grid(row=2,column=0,ipadx=self.bwidth,ipady=self.bheight)
+        self.abort_button = tk.Button(self.solve_frame, text='Abort', command=self.abort)
+        self.abort_button.grid(row=1, column=1, ipadx=self.bpadx, ipady=self.bpady)
+       
+        self.hint_button = tk.Button(self.solve_frame,text='Hint',command=self.hint)
 
-        self.delete_button = tk.Button(self.options_frame,text='Delete',command=self.delete)
-        self.delete_button.grid(row=3,column=1,ipadx=self.bwidth,ipady=self.bheight)
-        
-        self.clear_button = tk.Button(self.options_frame,text='Clear',command=self.clear)
-        self.clear_button.grid(row=3,column=0,ipadx=self.bwidth,ipady=self.bheight)
-        
-        self.close_button = tk.Button(self.options_frame,text='Close',command=master.destroy)
-        self.close_button.grid(row=4,column=0,columnspan=2,ipadx=self.bwidth,ipady=self.bheight)
+        self.reduce_button = tk.Button(self.solve_frame,text='Reduce',command=self.reduce)
 
-        self.hint_button = tk.Button(self.options_frame,text='Hint',command=self.hint)
-
-        self.reduce_button = tk.Button(self.options_frame,text='Reduce',command=self.reduce)
-
-        self.show_candidate_window_button = tk.Button(self.options_frame,text='Show candidates',
+        self.show_candidate_window_button = tk.Button(self.solve_frame,text='Show candidates',
                                                       command=self.show_candidate_window)
+
+        # frame for saving and loading
+        self.io_frame = tk.Frame(self.buttons_frame)
+        bflayout(self.io_frame)
+        self.io_frame.grid(row=2, column=0)
+
+        self.io_frame_label = tk.Label(self.io_frame, text='Saving / loading')
+        self.io_frame_label.grid(row=0, column=0, columnspan=2)
+
+        self.save_button = tk.Button(self.io_frame, text='Save', command=self.save)
+        self.save_button.grid(row=1, column=0, ipadx=self.bpadx, ipady=self.bpady)
         
-        self.messages_text = scrtxt.ScrolledText(master,width=75,height=25)
-        self.messages_text.grid(row=self.grid_frame_nrow+self.candidate_frame_nrow,column=0,
+        self.load_button = tk.Button(self.io_frame, text='Load', command=self.load)
+        self.load_button.grid(row=1, column=1, ipadx=self.bpadx, ipady=self.bpady)
+
+        # frame for clearing and closing
+        self.close_frame = tk.Frame(self.buttons_frame)
+        bflayout(self.close_frame)
+        self.close_frame.grid(row=3, column=0)
+
+        self.close_frame_label = tk.Label(self.close_frame, text='Clear / close')
+        self.close_frame_label.grid(row=0, column=0, columnspan=2)
+
+        self.clear_button = tk.Button(self.close_frame, text='Clear', command=self.clear)
+        self.clear_button.grid(row=1, column=0, ipadx=self.bpadx, ipady=self.bpady)
+        
+        self.close_button = tk.Button(self.close_frame, text='Close', command=master.destroy)
+        self.close_button.grid(row=1, column=1, ipadx=self.bpadx, ipady=self.bpady)
+
+        # make window for log text
+        self.messages_text = scrtxt.ScrolledText(master, width=75, height=25)
+        self.messages_text.grid(row=self.grid_frame_nrow+self.candidate_frame_nrow, column=0,
                             columnspan=3)
         initstring = 'Welcome to the Sudoku Solver!\n'
         initstring += '- Click on the cells in the grid above to set the intial values \n'
@@ -155,27 +207,31 @@ class SudokuSolverGUI:
         self.messages_text.insert(tk.INSERT,initstring)
 
     def setmode(self):
+        ### change mode from automatic to interactive or the other way around
         mode = self.mode.get()
         if mode=='A':
+            # switch from interactive to automatic
             try:
                 self.hint_button.grid_forget()
                 self.reduce_button.grid_forget()
-                self.show_candidate_window_button.forget()
+                self.show_candidate_window_button.grid_forget()
                 for wid in self.candidate_frame.grid_slaves():
                     wid.grid_forget()
             except: pass
-            self.solve_button.grid(row=0,column=0,ipadx=self.bwidth,ipady=self.bheight)
-            self.abort_button.grid(row=0,column=1,ipadx=self.bwidth,ipady=self.bheight)
+            self.solve_button.grid(row=1, column=0, ipadx=self.bpadx, ipady=self.bpady)
+            self.abort_button.grid(row=1, column=1, ipadx=self.bpadx, ipady=self.bpady)
         elif mode=='I':
+            # switch from automatic to interactive
             try:
                 self.solve_button.grid_forget()
+                self.abort_button.grid_forget()
             except: pass
-            self.hint_button.grid(row=0,column=0,ipadx=self.bwidth,ipady=self.bheight)
-            self.reduce_button.grid(row=0,column=1,ipadx=self.bwidth,ipady=self.bheight)
-            self.show_candidate_window_button.grid(row=1,column=0,columnspan=2,
-                    ipadx=self.bwidth,ipady=self.bheight)
+            self.hint_button.grid(row=1, column=0, ipadx=self.bpadx, ipady=self.bpady)
+            self.reduce_button.grid(row=1, column=1, ipadx=self.bpadx, ipady=self.bpady)
+            self.show_candidate_window_button.grid(row=2, column=0, columnspan=2,
+                    ipadx=self.bpadx, ipady=self.bpady)
             self.gridcells[0][0].focus()
-            for k in range(self.gridsize): self.candidatecells[0][0][k]['button'].grid(row=0,column=k)
+            for k in range(self.gridsize): self.candidatecells[0][0][k]['button'].grid(row=0, column=k)
 
     def showcandidates(self,event,i,j):
         if self.mode.get()=='A': return None

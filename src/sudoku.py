@@ -49,7 +49,7 @@ class Sudoku(object):
                 else:
                     self.candidates[i][j] = [self.grid[i,j]]
                     self.nunfilled -= 1
-                    self.ncands -= 8
+                    self.ncands -= (self.size-1)
 
         # intialize log file
         self.doprint = verbose

@@ -70,54 +70,24 @@ class SudokuSolverGUI:
         self.bwidth = 10
         self.bheight = 1
 
-        # define a frame for the sudoku cells and fill the grid        
+        # define a frame for the sudoku cells
         self.grid_frame = tk.Frame(master,width=200)
         self.grid_frame.grid(row=0,column=0,
                              rowspan=self.grid_frame_nrow,columnspan=self.grid_frame_ncol,
                              padx=10,pady=10)
-        
-        self.gridsize = 9
-        self.blocksize = 3
-        self.blockframes = []
-        for i in range(self.gridsize): 
-            self.blockframes.append(tk.LabelFrame(self.grid_frame,text='',
-                                    relief='solid',borderwidth=1))
-            self.blockframes[i].grid(row=divmod(i,self.blocksize)[0],
-                                     column=divmod(i,self.blocksize)[1])
-        self.gridcells = []
-        for i in range(self.gridsize):
-            self.gridcells.append([])
-            for j in range(self.gridsize):
-                blockn = divmod(i,self.blocksize)[0]*self.blocksize + divmod(j,self.blocksize)[0]
-                cell_entry = tk.Entry(self.blockframes[blockn],font="Calibri 20",
-                                        justify='center',width=2)
-                cell_entry.grid(row=divmod(i,self.blocksize)[1],column=divmod(j,self.blocksize)[1])
-                self.gridcells[i].append(cell_entry)
-                self.gridcells[i][j].bind("<1>",lambda event,row=i,col=j : 
-                                            self.showcandidates(event,row,col))
-        
-        # define a frame for the candidate cells and create a 3D list
+        # build frame for the candidate cells
         self.candidate_frame = tk.Frame(master,height=30,width=200)
         self.candidate_frame.grid(row=self.grid_frame_nrow,column=0,
                                   rowspan=self.candidate_frame_nrow,
                                   columnspan=self.candidate_frame_ncol,
                                   padx=10,pady=10)
-
+        
+        self.gridsize = 9 # default, can be changed with a button
+        self.blocksize = 3 # default, can be changed with a button
+        self.blockframes = []
+        self.gridcells = []
         self.candidatecells = []
-        for i in range(self.gridsize):
-            self.candidatecells.append([])
-            for j in range(self.gridsize):
-                self.candidatecells[i].append([])
-                for k in range(self.gridsize):
-                    var = tk.IntVar(value=1)
-                    candidate_rbutton = tk.Checkbutton(self.candidate_frame,text=str(k+1),
-                            font="Calibri 20",justify='center',width=2,indicatoron=False,
-                            var=var,background="red",selectcolor='green')
-                    self.candidatecells[i][j].append({'button':candidate_rbutton,'var':var})
-
-        # set focus to (0,0) and show corresponding candidates
-        #self.gridcells[0][0].focus()
-        #for k in range(self.gridsize): self.candidatecells[0][0][k]['button'].grid(row=0,column=k)
+        self.buildgrid(master=master)
 
         # define several frames for the action buttons
         # overall frame to group all sub-frames with buttons
@@ -185,14 +155,19 @@ class SudokuSolverGUI:
         bflayout(self.close_frame)
         self.close_frame.grid(row=3, column=0)
 
-        self.close_frame_label = tk.Label(self.close_frame, text='Clear / close')
+        self.close_frame_label = tk.Label(self.close_frame, text='Change / clear / close')
         self.close_frame_label.grid(row=0, column=0, columnspan=2)
 
+        self.change_size_button = tk.Button(self.close_frame,
+                text='Change size', command=self.open_change_size_window)
+        self.change_size_button.grid(row=1, column=0, columnspan=2, ipadx=self.bpadx, ipady=self.bpady)
+
+
         self.clear_button = tk.Button(self.close_frame, text='Clear', command=self.clear)
-        self.clear_button.grid(row=1, column=0, ipadx=self.bpadx, ipady=self.bpady)
+        self.clear_button.grid(row=2, column=0, ipadx=self.bpadx, ipady=self.bpady)
         
         self.close_button = tk.Button(self.close_frame, text='Close', command=master.destroy)
-        self.close_button.grid(row=1, column=1, ipadx=self.bpadx, ipady=self.bpady)
+        self.close_button.grid(row=2, column=1, ipadx=self.bpadx, ipady=self.bpady)
 
         # make window for log text
         self.messages_text = scrtxt.ScrolledText(master, width=75, height=25)
@@ -205,6 +180,46 @@ class SudokuSolverGUI:
         initstring += '  (this will overwrite any previously saved grid)\n'
         initstring += '- Solve your sudoku by pressing "Solve"!\n\n'
         self.messages_text.insert(tk.INSERT,initstring)
+
+    def buildgrid(self, master=None):
+
+        # remove previous widgets
+        for wid in self.grid_frame.grid_slaves(): wid.grid_forget()
+        for wid in self.candidate_frame.grid_slaves(): wid.grid_forget()
+
+        # build grid frames
+        self.blockframes = []
+        for i in range(self.gridsize):
+            self.blockframes.append(tk.LabelFrame(self.grid_frame,text='',
+                                    relief='solid',borderwidth=1))
+            self.blockframes[i].grid(row=divmod(i,self.blocksize)[0],
+                                     column=divmod(i,self.blocksize)[1])
+        
+        # build grid cells
+        self.gridcells = []
+        for i in range(self.gridsize):
+            self.gridcells.append([])
+            for j in range(self.gridsize):
+                blockn = divmod(i,self.blocksize)[0]*self.blocksize + divmod(j,self.blocksize)[0]
+                cell_entry = tk.Entry(self.blockframes[blockn],font="Calibri 20",
+                                        justify='center',width=2)
+                cell_entry.grid(row=divmod(i,self.blocksize)[1],column=divmod(j,self.blocksize)[1])
+                self.gridcells[i].append(cell_entry)
+                self.gridcells[i][j].bind("<1>",lambda event,row=i,col=j :
+                                            self.showcandidates(event,row,col))
+
+        # build candidate cells
+        self.candidatecells = []
+        for i in range(self.gridsize):
+            self.candidatecells.append([])
+            for j in range(self.gridsize):
+                self.candidatecells[i].append([])
+                for k in range(self.gridsize):
+                    var = tk.IntVar(value=1)
+                    candidate_rbutton = tk.Checkbutton(self.candidate_frame,text=str(k+1),
+                            font="Calibri 20",justify='center',width=2,indicatoron=False,
+                            var=var,background="red",selectcolor='green')
+                    self.candidatecells[i][j].append({'button':candidate_rbutton,'var':var})
 
     def setmode(self):
         ### change mode from automatic to interactive or the other way around
@@ -232,6 +247,9 @@ class SudokuSolverGUI:
                     ipadx=self.bpadx, ipady=self.bpady)
             self.gridcells[0][0].focus()
             for k in range(self.gridsize): self.candidatecells[0][0][k]['button'].grid(row=0, column=k)
+
+    def open_change_size_window(self):
+        pass # to do
 
     def showcandidates(self,event,i,j):
         if self.mode.get()=='A': return None
@@ -386,16 +404,22 @@ class SudokuSolverGUI:
                     filetypes=(('txt files','*.txt'),('all files','*.*')))
         try:
             grid = np.loadtxt(filename)
-            self.gridsize = len(grid)
-            self.setgrid(grid)
-            message =  '[notification:] Grid loaded successfully.\n\n'
-            self.messages_text.insert(tk.INSERT,message)
-            self.messages_text.see(tk.END)
+            newgridsize = int(len(grid))
+            newblocksize = int(np.sqrt(newgridsize))
         except:
             message = '[notification:] ERROR: grid could not be loaded from file.\n\n'
             self.messages_text.insert(tk.INSERT,message)
             self.messages_text.see(tk.END)
             return None
+        # case where grid size is different
+        if newgridsize!=self.gridsize:
+            self.gridsize = newgridsize
+            self.blocksize = newblocksize
+            self.buildgrid()
+        self.setgrid(grid)
+        message =  '[notification:] Grid loaded successfully.\n\n'
+        self.messages_text.insert(tk.INSERT,message)
+        self.messages_text.see(tk.END)
 
     def delete(self):
         self.allcellswhite()

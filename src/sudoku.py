@@ -377,6 +377,7 @@ class Sudoku(object):
         #    self.writemessage(msg)
         return res
 
+
     def issubset(self, smalllist, biglist):
         # help function for nakedsubset and hiddensubset
         # return values:
@@ -391,68 +392,11 @@ class Sudoku(object):
         if nels==len(smalllist): return 1
         return 0
 
-    def nakedsubset(self, group, groupindex, label, candidates, solve=True, verbose=False):
-        # ADVANCED method (group-based)
-        # if n candidate sets together contain only a set of n numbers, 
-        # remove those numbers from all other candidate sets in the group
-        # input arguments:
-        # - solve: boolean whether to modify the grid or only return hint
-        # todo: this method can be even more generalized compared to current implementation:
-        #       see e.g. the sets [5,6], [6,8] and [5,8].
-        #       there is none of these candidate sets of which all other ones are a subset,
-        #       but yet they form a naked triplet.
-        #       this is not yet implemented.
-        
-        #if verbose: self.writemessage('Searching for naked subsets...')
-        res = []
-        # loop over all candidate sets in the group
-        for i in range(self.size-1):
-            candsi = candidates[i]
-            # skip cells with only one candidate left
-            if len(candsi)<2: continue
-            # loop over all other candidate sets in the group
-            subindices = [i]
-            for j in range(self.size):
-                if j==i: continue
-                candsj = candidates[j]
-                if len(candsj)<2: continue
-                if len(candsj)>len(candsi): continue
-                # check if candidates at position j are a subset
-                # (i.e. fully contained in or equal to)
-                # of candidates at position i
-                sub = self.issubset(candsj, candsi)
-                if sub==1: subindices.append(j)
-            # if the number of subsets is equal to the number of candidates,
-            # those candidates can be removed from all other cells in the group
-            if len(subindices) == len(candsi):
-                useful = False
-                # loop over other cells in the group
-                for j in range(self.size):
-                    if j in subindices: continue
-                    (row, column) = self.getcell(label, groupindex, j)
-                    for cand in candsi:
-                        if cand in self.candidates[row][column]: useful = True
-                        if solve: self.removecandidate(row, column, cand)
-                if useful:
-                    cells = []
-                    for s in subindices: cells.append(self.getcell(label, groupindex, s))
-                    res.append({'method': 'nakedsubset',
-                                'infokeys': ['grouplabel','groupindex','indices','values','cells'],
-                                'grouplabel':label, 'groupindex':groupindex,
-                                'indices':subindices, 'values':candsi, 'cells':cells})
-                    if verbose: self.writemessage('Found naked subset in cells {}'.format(cells))
-        #if verbose and len(res)==0: self.writemessage('(no naked subsets found.)')
-        return res
-                
-    def hiddensubset(self, group, groupindex, label, candidates, solve=True, verbose=False):
-        # ADVANCED method (group-based)
-        # if a subset of n candidates is shared between exactly n cells, 
-        # remove all other candidates from these cells
-        # input arguments:
-        # - solve: boolean whether to modify the grid or only return hint
-        
-        #if verbose: self.writemessage('Searching for hidden subsets...')
-        res = []
+    def allsubsets(self, candidates):
+        # help function for nakedsubset and hiddensubset
+        # returns:
+        #   a list of all subsets built from all candidates in a group
+
         # make a list of unique candidates
         # in all cells that are not already filled
         allcands = []
@@ -465,7 +409,57 @@ class Sudoku(object):
         for j in range(3, len(uniquecands)+1):
             toappend = list(itertools.combinations(uniquecands, j))
             for subset in toappend: subsets.append(subset)
-        # loop over all subsets
+        return subsets
+
+    def nakedsubset(self, group, groupindex, label, candidates, solve=True, verbose=False):
+        # ADVANCED method (group-based)
+        # if n candidate sets together contain only a set of n numbers, 
+        # remove those numbers from all other candidate sets in the group
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
+        
+        #if verbose: self.writemessage('Searching for naked subsets...')
+        res = []
+        # loop over all subsets of candidates in the group
+        subsets = self.allsubsets(candidates)
+        for subset in subsets:
+            # find the cells of which all candidates belong to this subset
+            setindices = []
+            for j in range(self.size):
+                sub = self.issubset(candidates[j], subset)
+                if sub==1: setindices.append(j)
+            # if there are n cells with all candidates belonging to the subset,
+            # remove all candidates in the subset from all other cells
+            if(len(subset)==len(setindices)):
+                useful = False
+                for k in range(self.size):
+                    if k in setindices: continue
+                    (row, column) = self.getcell(label, groupindex, k)
+                    for cand in subset:
+                        if cand in self.candidates[row][column]: useful = True
+                        if solve: self.removecandidate(row, column, cand)
+                if useful:
+                    cells = []
+                    for s in setindices: cells.append(self.getcell(label, groupindex, s))
+                    res.append({'method': 'nakedsubset',
+                                'infokeys': ['grouplabel','groupindex','indices','values','cells'],
+                                'grouplabel':label, 'groupindex':groupindex,
+                                'indices':setindices, 'values':subset, 'cells':cells})
+                    if verbose: self.writemessage('Found naked subset in cells '+str(cells))
+        #if verbose and len(res)==0: self.writemessage('(no naked subsets found.)')
+        return res
+
+    def hiddensubset(self, group, groupindex, label, candidates, solve=True, verbose=False):
+        # ADVANCED method (group-based)
+        # if a subset of n candidates is shared between exactly n cells, 
+        # remove all other candidates from these cells
+        # input arguments:
+        # - solve: boolean whether to modify the grid or only return hint
+        
+        #if verbose: self.writemessage('Searching for hidden subsets...')
+        res = []
+        # loop over all subsets of candidates in the group
+        subsets = self.allsubsets(candidates)
         for subset in subsets:
             # find cells where this subset is (at least partially) present
             shareindices = []
@@ -568,10 +562,12 @@ class Sudoku(object):
             if el in line: continue
             # find all blocks where this element is a candidate
             # (within this line)
+            cells = []
             blocks = []
             for i in range(self.size):
                 if el not in linecands[i]: continue
                 row, column = self.getcell(linelabel, lineindex, i)
+                cells.append((row, column))
                 blocks.append(self.getblockindex(row,column))
             unique_blocks = list(set(blocks))
             # case where all candidates occur within a single block
@@ -584,8 +580,9 @@ class Sudoku(object):
                     for column in range(firstcolumn, firstcolumn+self.blocksize):
                         if linelabel=='row' and row==lineindex: continue
                         if linelabel=='column' and column==lineindex: continue
-                        if el in self.candidates[row][column]: useful = True
-                        if solve: self.removecandidate(row, column, el)
+                        if el in self.candidates[row][column]:
+                            useful = True
+                            if solve: self.removecandidate(row, column, el)
                 if useful:
                     res.append({'method': 'lineblockinteraction',
                                 'infokeys': ['lineindex','linelabel','blockindex','value','cells'],

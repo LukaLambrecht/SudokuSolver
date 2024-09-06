@@ -519,10 +519,10 @@ class Sudoku(object):
                 if useful: 
                     cells = []
                     for s in unique_rows: cells.append((s, column))
-                    res.append({'method':'blocklineinteraction',
-                                'infokeys':['blockindex','linelabel','lineindex','value','cells'],
-                                'blockindex':blockindex, 'linelabel':'column', 'lineindex':column,
-                                'value':el, 'cells':cells})
+                    res.append({'method': 'blocklineinteraction',
+                                'infokeys': ['blockindex','linelabel','lineindex','value','cells'],
+                                'blockindex': blockindex, 'linelabel': 'column',
+                                'lineindex': column, 'value': el, 'cells': cells})
                     if solve: self.writemessage('- found block-column interaction')
         return res 
                                 
@@ -557,10 +557,10 @@ class Sudoku(object):
                         if el in self.candidates[row][column]: useful = True
                         if solve: self.removecandidate(row, column, el)
                 if useful:
-                    res.append({'method':'lineblockinteraction',
-                                'infokeys':['lineindex','linelabel','blockindex','value','cells'],
-                                'lineindex':lineindex,'linelabel':linelabel,'blockindex':testblock,
-                                'value':el,'cells':cells})
+                    res.append({'method': 'lineblockinteraction',
+                                'infokeys': ['lineindex','linelabel','blockindex','value','cells'],
+                                'lineindex': lineindex, 'linelabel':linelabel,
+                                'blockindex': block, 'value': el, 'cells': cells})
                     if solve: self.writemessage('- found line-block interaction')
         return res
                                 
@@ -677,12 +677,14 @@ class Sudoku(object):
                         if solve: self.writemessage('- found vertical block-block interaction')
         return res
     
-    def swordfishcolumns(self,solve=True):
+    def swordfishcolumns(self, solve=True):
         # HYPERADVANCED solving method (grid-based)
         # find a swordfish pattern in the columns of the grid 
         # and eliminate suitable candidates from the rows
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
+        # todo: maybe rewrite in this style: https://www.learn-sudoku.com/swordfish.html
+        # todo: it seems unnecessary to split into rows and column separately
         # STEP 1: find all columns that have exactly two spots for a given candidate
         res = []
         for el in range(1,self.size+1):
@@ -709,7 +711,8 @@ class Sudoku(object):
                     if rows[j][0] not in uniquerows: uniquerows.append(rows[j][0])
                     if rows[j][1] not in uniquerows: uniquerows.append(rows[j][1])
                 if len(uniquerows)!=len(colssubset): continue
-                # STEP 3: remove candidates from these rows that do not belong to the swordfish pattern
+                # STEP 3: remove candidates from these rows
+                # that do not belong to the swordfish pattern
                 # STEP 3a: define pattern in suitable format
                 pattern = []
                 for j in colssubset:
@@ -724,13 +727,14 @@ class Sudoku(object):
                                 useful = True
                             if solve: self.removecandidate(i,j,el)
                 if useful: 
-                    res.append({'method':'swordfishcolumns','infokeys':['value','pattern'],
-                                'value':el,'pattern':pattern})
+                    res.append({'method': 'swordfishcolumns',
+                                'infokeys': ['value','pattern'],
+                                'value':el, 'pattern':pattern})
                     if solve:
                         self.writemessage('- found column-wise swordfish pattern')
         return res
                         
-    def swordfishrows(self,solve=True):
+    def swordfishrows(self, solve=True):
         # HYPERADVANCED solving method (grid-based)
         # mirror of swordfishcolumns
         res = []
@@ -772,8 +776,10 @@ class Sudoku(object):
                         self.writemessage('- found row-wise swordfish pattern')
         return res
 
-    def intersect(self,coords1,coords2):
+    def intersect(self, coords1, coords2):
         # help function for XY wing
+        # returns True if coord1 and coords2 intersect,
+        # i.e. if they are in the same row, column or block
         (rw1,clmn1) = coords1
         (rw2,clmn2) = coords2
         if rw1==rw2: return True
@@ -781,8 +787,10 @@ class Sudoku(object):
         if self.getblockindex(rw1,clmn1)==self.getblockindex(rw2,clmn2): return True
         return False
 
-    def shareone(self,cands1,cands2):
+    def shareone(self, cands1, cands2):
         # help function for XY wing
+        # note: cands1 and cands2 are expected to be lists/arrays of length 2
+        # returns: the unique element shared between cands1 and cands2, or -1 otherwise
         if(cands2[0] in cands1 and not cands2[1] in cands1): return cands2[0]
         if(cands2[0] not in cands1 and cands2[1] in cands1): return cands2[1]
         return -1
@@ -793,76 +801,103 @@ class Sudoku(object):
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
         res = []
-        for rw1 in range(self.size):
-            for clmn1 in range(self.size):
-                if not len(self.candidates[rw1][clmn1])==2: continue
-                cands1 = self.candidates[rw1][clmn1]
+        # loop over all cells in the grid
+        for row1 in range(self.size):
+            for column1 in range(self.size):
+                # skip cells that do not have exactly 2 candidates
+                if not len(self.candidates[row1][column1])==2: continue
+                cands1 = self.candidates[row1][column1]
                 shareone = []
-                for rw2 in range(self.size):
-                    for clmn2 in range(self.size):
-                        if not len(self.candidates[rw2][clmn2])==2: continue
-                        if not self.intersect((rw1,clmn1),(rw2,clmn2)): continue
-                        cands2 = self.candidates[rw2][clmn2]
+                # loop over all other cells in the grid
+                # that have exactly two candidates and interset with the first one
+                for row2 in range(self.size):
+                    for column2 in range(self.size):
+                        if not len(self.candidates[row2][column2])==2: continue
+                        if not self.intersect((row1,column1), (row2,column2)): continue
+                        cands2 = self.candidates[row2][column2]
+                        # find the unique element shared between the candidates
+                        # of both cells
                         share = self.shareone(cands1,cands2)
-                        if share>0: shareone.append((rw2,clmn2))
+                        if share>0: shareone.append((row2, column2))
+                # if less than two cells that share a unique element
+                # with the given cell are found, skip.
                 if len(shareone)<2: continue
+                # loop over pairs of cells that share a unique element
+                # with the given cell
                 for c1 in range(len(shareone)-1):
-                    for c2 in range(c1+1,len(shareone)):
+                    for c2 in range(c1+1, len(shareone)):
                         (rw2,clmn2) = shareone[c1]
                         (rw3,clmn3) = shareone[c2]
-                        if self.intersect((rw3,clmn3),(rw2,clmn2)): continue
-                        share = self.shareone(self.candidates[rw2][clmn2],
-                                                self.candidates[rw3][clmn3])
+                        # they must not intersect
+                        if self.intersect((rw3,clmn3), (rw2,clmn2)): continue
+                        # they must share a unique element
+                        # that is not in the candidates of the given cell
+                        cands2 = self.candidates[rw2][clmn2]
+                        cands3 = self.candidates[rw3][clmn3]
+                        share = self.shareone(cands2, cands3)
                         if(share<0 or share in cands1): continue
+                        # found an xy-wing, now check if it is useful
+                        # for removing other candidates
                         useful = False
                         for rwa in range(self.size):
                             for clmna in range(self.size):
-                                if(not (self.intersect((rwa,clmna),(rw2,clmn2)) 
-                                    and self.intersect((rwa,clmna),(rw3,clmn3)))): continue
+                                intersect = ( 
+                                    self.intersect((rwa,clmna),(rw2,clmn2))
+                                    and self.intersect((rwa,clmna),(rw3,clmn3))
+                                )
+                                if not intersect: continue
                                 if(share in self.candidates[rwa][clmna]): useful = True
-                                if solve: self.removecandidate(rwa,clmna,share)
+                                if solve: self.removecandidate(rwa, clmna, share)
                         if useful: 
                             res.append({'method':'xywing','infokeys':['cells','value'],
-                                        'cells':[(rw1,clmn1),(rw2,clmn2),(rw3,clmn3)],
+                                        'cells':[(row1,column1),(rw2,clmn2),(rw3,clmn3)],
                                         'value':share})
-                            if solve:
-                                self.writemessage('- found XY-wing')
+                            if solve: self.writemessage('- found XY-wing')
         return res
 
-    def forcingchain(self,solve=True):
+    def forcingchain(self, solve=True):
         # HYPERADVANCED solving method (grid-based)
         # solve for all possibilities of a certain cell and check recurring patterns
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
         res = []
-        if solve:
-            self.writemessage('- attempting forcing chain...')
-
+        if solve: self.writemessage('- attempting forcing chain...')
+        # loop over all cells in the grid
         for i in range(self.size):
             for j in range(self.size):
                 cands = self.candidates[i][j]
                 if len(cands)==1: continue
+                # loop over all candidates for this cell
                 scopies = []
                 for k,cand in enumerate(cands):
                     # special abortion check
-                    if not self.contin: return [-1] 
-                    S = self.copy(logfilename=self.logname+'_'+str(k),appendlogfile=True)
+                    if not self.contin: return [-1]
+                    # make a copy and set the given candidate in the given cell
+                    S = self.copy(logfilename=self.logname+'_'+str(k), appendlogfile=True)
                     if solve:
-                        self.writemessage('    checking candidate '+str(cand)
-                                            +' for cell '+str((i,j)))
-                    S.setcell(i,j,cand)
+                        msg = '    checking candidate {} for cell {}'.format(cand, (i,j))
+                        self.writemessage(msg)
+                    S.setcell(i, j, cand)
                     # call solver on the sudoku but disable forcing chain method,
                     # since only one level of 'guessing' is allowed
                     # (else it is equivalent to brute force)
                     S.solve(useforcingchain=False)
                     scopies.append(S)
                 if len(scopies)==0: continue
+                # find candidates that were removed
+                # in all of the different hypotheses
                 candstoremove = cp.deepcopy(self.candidates)
                 removelist = []
                 useful = False
+                # loop over all other cells than the given cell
                 for ci in range(self.size):
                     for cj in range(self.size):
                         if(ci==i and cj==j): continue
+                        # check if any of the copies still contains a given value
+                        # (if so, erase it from candidates that can be removed;
+                        #  only candidates that are not erased,
+                        #  because they are in none of the copies,
+                        #  can effectively be removed)
                         for scopy in scopies:
                             for val in scopy.candidates[ci][cj]:
                                 if val in candstoremove[ci][cj]:
@@ -870,13 +905,13 @@ class Sudoku(object):
                         if len(candstoremove[ci][cj])>0:
                             useful = True
                             for val in candstoremove[ci][cj]:
-                                removelist.append((ci,cj,val))
-                                if solve: self.removecandidate(ci,cj,val)
+                                removelist.append((ci, cj, val))
+                                if solve: self.removecandidate(ci, cj, val)
                 if useful:
-                    res.append({'method':'forcingchain','infokeys':['cell','results'],
-                                'cell':(i,j),'results':removelist})
-                    if solve:
-                        self.writemessage('  forcing chain found recurring pattern!')
+                    res.append({'method': 'forcingchain',
+                                'infokeys': ['cell','results'],
+                                'cell': (i,j), 'results': removelist})
+                    if solve: self.writemessage('  forcing chain found recurring pattern!')
         if (len(res)>0 and solve): 
             self.writemessage('  forcing chain finished, continue regular solving...')
         return res

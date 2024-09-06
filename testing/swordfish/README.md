@@ -8,4 +8,4 @@ Then ask for a hint, it should hopefully show the swordfish pattern (potentially
 
 Results (as of 06/09/2024):
 `example_xwing.txt`: succes
-`example_swordfish.txt`: not so clear. Another swordfish pattern than the one given in the example is found, but it seems to be correct as well. In fully automatic mode, this example cannot be solved without forcing chain, but in interactive mode it can; there must be some inefficiency in fully automatic solving.
+`example_swordfish.txt`: succes (another swordfish pattern than the one given in the example is found, but it seems to be correct as well)

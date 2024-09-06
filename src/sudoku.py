@@ -599,7 +599,6 @@ class Sudoku(object):
         # remove it from the remaining positions in those rows
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
-        # todo: generalize to grids of different sizes (?)
         
         #if verbose: self.writemessage('Searching for horizontal block-block interactions.')
         res = []
@@ -723,6 +722,7 @@ class Sudoku(object):
         # - solve: boolean whether to modify the grid or only return hint
         # todo: maybe rewrite in this style: https://www.learn-sudoku.com/swordfish.html
         # todo: it seems unnecessary to split into rows and column separately
+        # (however, currently works correctly)
         # STEP 1: find all columns that have exactly two spots for a given candidate
         res = []
         for el in range(1,self.size+1):

@@ -1,4 +1,3 @@
 KNOWN ISSUES OR FORESEEN IMPROVEMENTS
-- The algorithm for block-block interaction is perhaps not the most general one if self.size > 9.
 - Support for 4x4, 16x16, etc. grids is in principle included in the code but has not been checked yet. Also, this is not supported in the GUI yet.
 - Edit style of red underscores for unfilled cells, e.g. after abortion (text entered should be black again instead of red)

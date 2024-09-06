@@ -4,9 +4,10 @@ import copy as cp
 
 class SudokuHelper(Sudoku):
 
-    def __init__(self,grid,candidates,verbose=True,logfilename=None,appendlogfile=False):
-        super(SudokuHelper,self).__init__(grid,verbose=verbose,
-                                            logfilename=logfilename,appendlogfile=appendlogfile)
+    def __init__(self, grid, candidates,
+            verbose=True, logfilename=None, appendlogfile=False):
+        super(SudokuHelper,self).__init__(grid,
+                verbose=verbose, logfilename=logfilename, appendlogfile=appendlogfile)
         self.candidates = cp.deepcopy(candidates)
         self.ncands = 0
         for i in range(self.size):
@@ -32,6 +33,8 @@ class SudokuHelper(Sudoku):
         res = self.swordfishrows(solve=False)
         if len(res)>0: return self.showhint(res[0])
         res = self.xywing(solve=False)
+        if len(res)>0: return self.showhint(res[0])
+        res = self.uniquerectangle(solve=False)
         if len(res)>0: return self.showhint(res[0])
         res = self.forcingchain(solve=False)
         if len(res)>0: return self.showhint(res[0])
@@ -117,6 +120,14 @@ class SudokuHelper(Sudoku):
             hint += self.printcell(resdict['cells'][2])+'.\n'
             hint += '        You can remove candidate '+str(resdict['value'])+' from all cells that share\n'
             hint += '        a group (row, column or block) with both wings.\n\n'
+            cells = resdict['cells']
+        elif resdict['method']=='uniquerectangle':
+            hint += 'There is a unique rectangle pattern.\n'
+            hint += '        The base cells are '+self.printcell(resdict['cells'][0])
+            hint += ', '+self.printcell(resdict['cells'][1])
+            hint += ' and '+self.printcell(resdict['cells'][2])+'\n'
+            hint += '        You can remove candidates '+str(resdict['values'])
+            hint += ' from target cell '+self.printcell(resdict['target'])+'.\n\n'
             cells = resdict['cells']
         elif resdict['method']=='forcingchain':
             hint += 'A forcing chain method was used.\n'

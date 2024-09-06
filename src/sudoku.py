@@ -112,7 +112,7 @@ class Sudoku(object):
         # get copy of grid for read-only purposes
         return np.copy(self.grid)
     
-    def getrow(self,index):
+    def getrow(self, index):
         # get copy of row at position 'index'
         # numbering convention: from 0 until self.size (not included), from top to bottom
         if index<0 or index>self.size:
@@ -124,7 +124,7 @@ class Sudoku(object):
             res2.append(self.candidates[index][i])
         return (res1,res2)
     
-    def getcolumn(self,index):
+    def getcolumn(self, index):
         # get copy of column at position 'index'
         # numbering convention: from 0 until self.size (not included), from left to right
         if index<0 or index>self.size:
@@ -136,7 +136,7 @@ class Sudoku(object):
             res2.append(self.candidates[i][index])
         return (res1,res2)
     
-    def getblock(self,index1,index2=None):
+    def getblock(self, index1, index2=None):
         # get copy of block
         # case 1: index2 == None: index1 is global block index
         # numbering convention: from 0 until self.size (not included), in reading order
@@ -894,6 +894,65 @@ class Sudoku(object):
                             if verbose: self.writemessage('Found XY-wing')
         return res
 
+    def uniquerectangle(self, solve=True, verbose=False):
+        # HYPERADVANCED solving method (grid-based)
+        # if the sudoku is assumed to have a unique solution,
+        # there cannot be a rectangle (2 rows, 2 columns, 2 blocks)
+        # with the same two candidates at each of the corner points
+        res = []
+        # loop over all cells in the grid
+        for row1 in range(self.size):
+            for column1 in range(self.size):
+                # skip cells that do not have exactly 2 candidates
+                if not len(self.candidates[row1][column1])==2: continue
+                cands1 = self.candidates[row1][column1]
+                # find cells in the same row that have exactly the same two candidates
+                same_row_cols = []
+                rowcands = self.getrow(row1)[1]
+                for j in range(self.size):
+                    if j==column1: continue
+                    if set(rowcands[j])==set(cands1): same_row_cols.append(j)
+                if len(same_row_cols)==0: continue
+                # find the cells in the same column that have exactly the same two candidates
+                same_col_rows = []
+                colcands = self.getcolumn(column1)[1]
+                for j in range(self.size):
+                    if j==row1: continue
+                    if set(colcands[j])==set(cands1): same_col_rows.append(j)
+                if len(same_col_rows)==0: continue
+                # loop over all combinations of second and third cells
+                b1 = self.getblockindex(row1, column1)
+                for same_row_col in same_row_cols:
+                    b2 = self.getblockindex(row1, same_row_col)
+                    for same_col_row in same_col_rows:
+                        b3 = self.getblockindex(same_col_row, column1)
+                        # the three cells must be in two blocks
+                        # (i.e. not in three different blocks)
+                        if len(set([b1, b2, b3]))>2: continue
+                        # the fourth cell must not be filled
+                        # and must contain at least one of the two candidates
+                        cands4 = self.candidates[same_col_row][same_row_col]
+                        if len(cands4)==1: continue
+                        cands_to_remove = []
+                        if cands1[0] in cands4: cands_to_remove.append(cands1[0])
+                        if cands1[1] in cands4: cands_to_remove.append(cands1[1])
+                        if len(cands_to_remove)>0:
+                            res.append({'method':'uniquerectangle',
+                                        'infokeys':['cells', 'target', 'values'],
+                                        'cells':[
+                                            (row1, column1),
+                                            (row1, same_row_col),
+                                            (same_col_row, column1),
+                                            (same_col_row, same_row_col)],
+                                        'target': (same_col_row, same_row_col),
+                                        'values': cands_to_remove})
+                            if solve:
+                                for cand in cands_to_remove:
+                                    self.removecandidate(same_col_row, same_row_col, cand)
+                            if verbose: self.writemessage('Found unique rectangle')
+        return res
+
+
     def forcingchain(self, solve=True, verbose=False):
         # HYPERADVANCED solving method (grid-based)
         # solve for all possibilities of a certain cell and check recurring patterns
@@ -1000,6 +1059,7 @@ class Sudoku(object):
         self.swordfishcolumns(verbose=verbose)
         self.swordfishrows(verbose=verbose)
         self.xywing(verbose=verbose)
+        self.uniquerectangle(verbose=verbose)
         self.solve_advanced(verbose=verbose)
         if verbose: self.writemessage('Number of remaining candidates: '+str(self.ncands))
         while self.ncands < ncands:
@@ -1007,6 +1067,7 @@ class Sudoku(object):
             self.swordfishcolumns(verbose=verbose)
             self.swordfishrows(verbose=verbose)
             self.xywing(verbose=verbose)
+            self.uniquerectangle(verbose=verbose)
             self.solve_advanced(verbose=verbose)
             if verbose: self.writemessage('Number of remaining candidates: '+str(self.ncands))
 

@@ -1050,7 +1050,7 @@ class Sudoku(object):
             self.solve_hyperadvanced(verbose=True)
             while self.ncands < ncands:
                 ncands = self.ncands
-                self.forcingchaing(verbose=True)
+                self.forcingchain(verbose=True)
                 self.solve_hyperadvanced(verbose=True)
             (outputcode,message) = self.terminate()
             if outputcode!=0: return (outputcode,message)

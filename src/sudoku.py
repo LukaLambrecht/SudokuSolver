@@ -973,7 +973,8 @@ class Sudoku(object):
                     # make a copy and set the given candidate in the given cell
                     S = self.copy(logfilename=self.logname+'_'+str(k), appendlogfile=True)
                     if verbose:
-                        msg = 'Checking candidate {} for cell {}'.format(cand, (i,j))
+                        msg = 'Forcing chain: trying out candidate {}'.format(cand)
+                        msg += ' for cell {}'.format((i,j))
                         self.writemessage(msg)
                     S.setcell(i, j, cand)
                     # call solver on the sudoku but disable forcing chain method,
@@ -1010,8 +1011,19 @@ class Sudoku(object):
                                 'infokeys': ['cell','results'],
                                 'cell': (i,j), 'results': removelist})
                     if verbose: self.writemessage('Forcing chain found recurring pattern!')
-        if verbose and len(res)>0: 
-            self.writemessage('Forcing chain finished, continue regular solving...')
+                    # exit the function here
+                    # (this is optional; if commented out, a forching chain will be attempted
+                    #  for each cell in the grid, but this is inefficient and not needed,
+                    #  as this function itself is usually already embedded in a solving loop)
+                    return res
+                else:
+                    if verbose:
+                        msg = 'Forcing chain finished for cell {}'.format((i,j))
+                        msg += ' without finding recurring pattern.'
+                        self.writemessage(msg)
+        if verbose:
+            if len(res)!=0: self.writemessage('Forcing chain finished for all cells in grid.')
+            else: self.writemessage('Forcing chain finished whithout finding pattern.')
         return res
                     
 
@@ -1022,12 +1034,12 @@ class Sudoku(object):
         ncands = self.ncands
         self.reducecandidates(verbose=verbose)
         self.loopgroups(['complement'], verbose=verbose)
-        if verbose: self.writemessage('Number of remaining candidates '+str(self.ncands))
-        while self.ncands < ncands:
+        if verbose: self.writemessage('Number of remaining candidates: '+str(self.ncands))
+        while self.ncands < ncands and self.nunfilled>0:
             ncands = self.ncands
             self.reducecandidates(verbose=verbose)
             self.loopgroups(['complement'], verbose=verbose)
-            if verbose: self.writemessage('Number of remaining candidates '+str(self.ncands))
+            if verbose: self.writemessage('Number of remaining candidates: '+str(self.ncands))
         return ncands
 
     def solve_advanced(self, verbose=False):
@@ -1040,8 +1052,8 @@ class Sudoku(object):
                          'lineblockinteraction','blockblockinteraction'],
                          verbose=verbose)
         self.solve_basic(verbose=verbose)
-        if verbose: self.writemessage('Number of remaining candidates '+str(self.ncands))
-        while self.ncands < ncands:
+        if verbose: self.writemessage('Number of remaining candidates: '+str(self.ncands))
+        while self.ncands < ncands and self.nunfilled>0:
             ncands = self.ncands
             self.loopgroups(['nakedsubset','hiddensubset','blocklineinteraction',
                              'lineblockinteraction','blockblockinteraction'],
@@ -1062,7 +1074,7 @@ class Sudoku(object):
         self.uniquerectangle(verbose=verbose)
         self.solve_advanced(verbose=verbose)
         if verbose: self.writemessage('Number of remaining candidates: '+str(self.ncands))
-        while self.ncands < ncands:
+        while self.ncands < ncands and self.nunfilled>0:
             ncands = self.ncands
             self.swordfishcolumns(verbose=verbose)
             self.swordfishrows(verbose=verbose)
@@ -1109,7 +1121,7 @@ class Sudoku(object):
             ncands = self.ncands
             self.forcingchain(verbose=True)
             self.solve_hyperadvanced(verbose=True)
-            while self.ncands < ncands:
+            while self.ncands < ncands and self.nunfilled>0:
                 ncands = self.ncands
                 self.forcingchain(verbose=True)
                 self.solve_hyperadvanced(verbose=True)

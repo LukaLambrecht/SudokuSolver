@@ -34,8 +34,8 @@ class SudokuHelper(Sudoku):
         if len(res)>0: return self.showhint(res[0])
         res = self.xywing(solve=False)
         if len(res)>0: return self.showhint(res[0])
-        res = self.uniquerectangle(solve=False)
-        if len(res)>0: return self.showhint(res[0])
+        #res = self.uniquerectangle(solve=False)
+        #if len(res)>0: return self.showhint(res[0])
         res = self.forcingchain(solve=False)
         if len(res)>0: return self.showhint(res[0])
         return ('No hint could be found!\n\n',[])
@@ -136,7 +136,7 @@ class SudokuHelper(Sudoku):
             for c in resdict['results']:
                 hint += '        candidate '+str(c[2])+' in cell '+self.printcell((c[0],c[1]))+'\n'
             hint += '\n'
-            cells = resdict['removelist']
+            cells = resdict['results']
         else:
             hint = 'Oops, something went wrong, the hint cannot be shown...\n\n'
         return (hint,cells)

@@ -194,22 +194,29 @@ class Sudoku(object):
         
     def setcell(self,rowindex,columnindex,value):
         # fill a cell with a value (if not already filled) and modify counters
-        if self.grid[rowindex,columnindex]!=0:
-            return (self.nunfilled,self.ncands)
+        if self.grid[rowindex, columnindex]!=0:
+            return (self.nunfilled, self.ncands)
+            # to find out where this is used,
+            # maybe raise warning or exception instead?
         self.nunfilled -= 1
-        self.grid[rowindex,columnindex] = value
+        self.grid[rowindex, columnindex] = value
         self.ncands -= len(self.candidates[rowindex][columnindex])-1
         self.candidates[rowindex][columnindex] = [value]
-        return (self.nunfilled,self.ncands)
+        return (self.nunfilled, self.ncands)
     
-    def removecandidate(self,rowindex,columnindex,value):
+    def removecandidate(self, rowindex, columnindex, value):
         # remove a candidate (if present) and modify counters
         if value not in self.candidates[rowindex][columnindex]:
-            return (self.nunfilled,self.ncands)
+            return (self.nunfilled, self.ncands)
+            # to find out where this is used,
+            # maybe raise warning or exception instead?
+        # remove candidate
         self.candidates[rowindex][columnindex].remove(value)
         self.ncands -= 1
+        # if only one candidate remains for the current cell, fill it
         if len(self.candidates[rowindex][columnindex])==1:
-            return self.setcell(rowindex,columnindex,self.candidates[rowindex][columnindex][0])
+            candidate = self.candidates[rowindex][columnindex][0]
+            return self.setcell(rowindex, columnindex, candidate)
     
     def isvalid(self):
         # check if a sudoku grid does not contain contradictions so far; 
@@ -240,369 +247,434 @@ class Sudoku(object):
         # check if a sudoku is solved
         return (self.isvalid() and self.nunfilled==0)
     
-    def reducecandidates(self,solve=True):
+    def reducecandidates(self, solve=True):
         # BASIC solving method (element-based)
         # loop over all elements in the grid and remove candidates 
         # based on row, column and block restrictions.
+        # note: when only one candidate remains for a given cell,
+        #       the cell is filled with this candidate
+        #       (this solving method is also known as 'sole candidate')
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
         if solve: self.writemessage('- running basic reduction method...')
         res = []
+        # loop over rows and columns in the grid
         for i in range(self.size):
             for j in range(self.size):
-                if self.grid[i][j]!=0:
-                    continue
-                for k,group in enumerate([self.getrow(i)[0],self.getcolumn(j)[0],self.getblock(i,j)[0]]):
+                # skip already filled cells
+                if self.grid[i][j] != 0: continue
+                # loop over all groups (row, column, block)
+                # that this cell belongs to
+                row = self.getrow(i)[0]
+                col = self.getcolumn(j)[0]
+                block = self.getblock(i,j)[0]
+                for k, group in enumerate([row, col, block]):
+                    # for each number in the group,
+                    # if it is also a candidate in the current cell,
+                    # that candidate can be removed
                     for number in group:
                         if number in self.candidates[i][j]:
-                            groupname = ['row','column','block'][k]
-                            res.append({'method':'reducecandidates',
-                                        'infokeys':['cell','label','value'],
-                                        'cell':(i,j),'label':groupname,'value':int(number)})
-                            if solve: self.removecandidate(i,j,number)
+                            groupname = ['row', 'column', 'block'][k]
+                            res.append({'method': 'reducecandidates',
+                                        'infokeys': ['cell', 'label', 'value'],
+                                        'cell': (i,j),
+                                        'label': groupname,
+                                        'value':int(number)})
+                            if solve: self.removecandidate(i, j, number)
         return res
                     
-    def loopgroups(self,groupfunctions,labels=['row','column','block'],solve=True):
+    def loopgroups(self, groupfunctions, labels=['row','column','block'], solve=True):
         # generic looper over all groups in the grid
+        # helper function for group-based solving methods below
         # input arguments:
-        # - groupfunctions is a list of function to be called on each group
-        # - labels is a list of types of groups to loop over, default all groups
+        # - groupfunctions: a list of function names to be called on each group
+        # - labels: a list of types of groups to loop over, default all groups
         # - solve: boolean whether to modify the grid or only return hint
         labels = labels[:] # copy to local variable since it might be altered
         groupfunctions = groupfunctions[:] # see above
-        validlabels = []
+        # check validity of labels
+        for label in labels[:]:
+            if label not in ['row', 'column', 'block']:
+                msg = 'WARNING: group label "{}" not recognized;'.format(label)
+                msg += ' skipping it.'
+                print(msg)
+                labels.remove(label)
         res = []
-        if 'row' in labels: validlabels.append('row'); labels.remove('row')
-        if 'column' in labels: validlabels.append('column'); labels.remove('column')
-        if 'block' in labels: validlabels.append('block'); labels.remove('block')
-        if len(labels)>0: print('WARNING: group label not recognized, skipping it; found '+str(labels))
+        # loop over all groups
         for i in range(self.size):
-            for validlabel in validlabels:
-                group,cands = self.getgroup(validlabel,i)
+            for label in labels:
+                group, cands = self.getgroup(label, i)
+                args = [group, i, label, cands]
+                # loop over al functions to be called on each group
                 for f in groupfunctions:
                     # part 1: functions applicable to all groups
-                    if f=='complement': res += self.complement(group,i,validlabel,cands,solve=solve);
-                    elif f=='nakedsubset': res += self.nakedsubset(group,i,validlabel,cands,solve=solve)
-                    elif f=='hiddensubset': res += self.hiddensubset(group,i,validlabel,cands,solve=solve)
+                    if f=='complement': res += self.complement(*args, solve=solve)
+                    elif f=='nakedsubset': res += self.nakedsubset(*args, solve=solve)
+                    elif f=='hiddensubset': res += self.hiddensubset(*args, solve=solve)
                     # part 2: functions applicable to rows and columns
                     elif f=='lineblockinteraction': 
-                        if validlabel=='row' or validlabel=='column':
-                            res += self.lineblockinteraction(group,i,validlabel,cands,solve=solve)
+                        if label in ['row','column']:
+                            res += self.lineblockinteraction(*args, solve=solve)
                     # part 3: functions applicable to blocks
                     elif f=='blocklineinteraction': 
-                        if validlabel=='block':
-                            res += self.blocklineinteraction(group,i,cands,solve=solve)
+                        if label=='block':
+                            res += self.blocklineinteraction(*args, solve=solve)
                     elif f=='blockblockinteraction':
-                        if validlabel=='block':
-                            res += self.blockblockhorizontalinteraction(group,i,validlabel,cands,solve=solve)
-                            res += self.blockblockverticalinteraction(group,i,validlabel,cands,solve=solve)
-                    else: print('WARNING: groupfunction not recognized, skipping it; found '+str(f))
+                        if label=='block':
+                            res += self.blockblockhorizontalinteraction(*args, solve=solve)
+                            res += self.blockblockverticalinteraction(*args, solve=solve)
+                    else:
+                        msg = 'WARNING: groupfunction "{}" not recognized,'.format(f)
+                        msg += ' skipping it.'
+                        print(msg)
         return res
                 
-    def complement(self,group,groupindex,label,candidates,solve=True):
+    def complement(self, group, groupindex, label, candidates, solve=True):
         # BASIC solving method (group-based)
-        # if only one possible position for an element is present in a group, 
-        # fill it with this element
+        # if only one possible position for an element is present within a group, 
+        # fill this position with this element
+        # (this solving method is also known as 'unique candidate')
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
         res = []
+        # loop over all elements to be filled in the group
         for el in range(1,self.size+1):
-            if el in group:
-                continue
-            npossible = 0
-            indexj = -1
+            # skip elements already present in the group
+            if el in group: continue
+            # find all positions where the element is a candidate
+            pos = []
             for j in range(self.size):
-                if el in candidates[j]:
-                    npossible += 1
-                    indexj = j
-            if npossible==1:
-                (rw,clmn) = self.getcell(label,groupindex,indexj)
-                res.append({'method':'complement',
-                            'infokeys':['cell','label','value'],
-                            'cell':(rw,clmn),'label':label,'value':el})
+                if el in candidates[j]: pos.append(j)
+            # if only one position, fill it with this element
+            if len(pos)==1:
+                (row, column) = self.getcell(label, groupindex, pos[0])
+                res.append({'method': 'complement',
+                            'infokeys': ['cell','label','value'],
+                            'cell': (row, column),
+                            'label': label,
+                            'value': el})
                 if solve:
-                    self.setcell(rw,clmn,el)
-                    self.writemessage('- cell '+str((rw,clmn))+' was filled using basic '
-                                        +str(label)+' complementing.')
+                    self.setcell(row, column, el)
+                    msg = '- cell ({},{}) was filled'.format(row, column)
+                    msg += ' using basic {} complementing.'.format(label)
+                    self.writemessage(msg)
         return res
-    
-    def nakedsubset(self,group,groupindex,label,candidates,solve=True):
+
+    def issubset(self, smalllist, biglist):
+        # help function for nakedsubset and hiddensubset
+        # return values:
+        #   -1: not a single element of smalllist in biglist
+        #   0: some but not all elements of smalllist in biglist
+        #   1: all elements of smalllist in biglist
+        nels = 0
+        for el in smalllist:
+            if el in biglist:
+                nels += 1
+        if nels==0: return -1
+        if nels==len(smalllist): return 1
+        return 0
+
+    def nakedsubset(self, group, groupindex, label, candidates, solve=True):
         # ADVANCED method (group-based)
-        # if n candidate sets together contain only n numbers, 
-        # remove those numbers from all other candidate sets
+        # if n candidate sets together contain only a set of n numbers, 
+        # remove those numbers from all other candidate sets in the group
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
+        # todo: this method can be even more generalized compared to current implementation:
+        #       see e.g. the sets [5,6], [6,8] and [5,8].
+        #       there is none of these candidate sets of which all other ones are a subset,
+        #       but yet they form a naked triplet.
+        #       this is not yet implemented.
         res = []
+        # loop over all candidate sets in the group
         for i in range(self.size-1):
             candsi = candidates[i]
+            # skip cells with only one candidate left
             if len(candsi)<2: continue
-            nsubs = 1
+            # loop over all other candidate sets in the group
             subindices = [i]
             for j in range(self.size):
                 if j==i: continue
                 candsj = candidates[j]
-                sub = self.issubset(candsj,candsi)
-                if sub==1:
-                    nsubs += 1
-                    subindices.append(j)
-            if(nsubs==len(candsi)):
+                if len(candsj)<2: continue
+                if len(candsj)>len(candsi): continue
+                # check if candidates at position j are a subset
+                # (i.e. fully contained in or equal to)
+                # of candidates at position i
+                sub = self.issubset(candsj, candsi)
+                if sub==1: subindices.append(j)
+            # if the number of subsets is equal to the number of candidates,
+            # those candidates can be removed from all other cells in the group
+            if len(subindices) == len(candsi):
                 useful = False
+                # loop over other cells in the group
                 for j in range(self.size):
-                    if j not in subindices:
-                        (rw,clmn) = self.getcell(label,groupindex,j)
-                        for cand in candsi:
-                            if cand in self.candidates[rw][clmn]: useful = True
-                            if solve: self.removecandidate(rw,clmn,cand)
-                if useful: 
+                    if j in subindices: continue
+                    (row, column) = self.getcell(label, groupindex, j)
+                    for cand in candsi:
+                        if cand in self.candidates[row][column]: useful = True
+                        if solve: self.removecandidate(row, column, cand)
+                if useful:
                     cells = []
-                    for s in subindices: cells.append(self.getcell(label,groupindex,s))
-                    res.append({'method':'nakedsubset',
-                                    'infokeys':['grouplabel','groupindex','indices','values','cells'],
-                                    'grouplabel':label,'groupindex':groupindex,
-                                    'indices':subindices,'values':candsi,'cells':cells})
-                    if solve:
-                        self.writemessage('- found naked subset in cells '+str(cells))
+                    for s in subindices: cells.append(self.getcell(label, groupindex, s))
+                    res.append({'method': 'nakedsubset',
+                                'infokeys': ['grouplabel','groupindex','indices','values','cells'],
+                                'grouplabel':label, 'groupindex':groupindex,
+                                'indices':subindices, 'values':candsi, 'cells':cells})
+                    if solve: self.writemessage('- found naked subset in cells {}'.format(cells))
         return res
                 
-    def hiddensubset(self,group,groupindex,label,candidates,solve=True):
+    def hiddensubset(self, group, groupindex, label, candidates, solve=True):
         # ADVANCED method (group-based)
         # if a subset of n candidates is shared between exactly n cells, 
         # remove all other candidates from these cells
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
         res = []
-        uniquecands = []
+        # make a list of unique candidates
+        # in all cells that are not already filled
+        allcands = []
         for candset in candidates:
             if len(candset)<2: continue
-            for cand in candset:
-                if cand not in uniquecands: uniquecands.append(cand)
-        subsets = list(itertools.combinations(uniquecands,2))
-        for j in range(3,len(uniquecands)+1):
-            toappend = list(itertools.combinations(uniquecands,j))
+            allcands += candset
+        uniquecands = list(set(allcands))
+        # build all possible subsets of all unique candidates
+        subsets = list(itertools.combinations(uniquecands, 2))
+        for j in range(3, len(uniquecands)+1):
+            toappend = list(itertools.combinations(uniquecands, j))
             for subset in toappend: subsets.append(subset)
+        # loop over all subsets
         for subset in subsets:
+            # find cells where this subset is (at least partially) present
             shareindices = []
             for j in range(self.size):
-                sub = self.issubset(subset,candidates[j])
+                sub = self.issubset(subset, candidates[j])
                 if(sub==0 or sub==1): shareindices.append(j)
+            # if a subset of size n is shared by n cells,
+            # remove all other candidates from these cells
             if(len(subset)==len(shareindices)):
                 useful = False
                 for k in shareindices:
-                    (rw,clmn) = self.getcell(label,groupindex,k)
-                    for cand in range(1,self.size+1):
-                        if cand not in subset:
-                            if cand in self.candidates[rw][clmn]: useful = True
-                            if solve: self.removecandidate(rw,clmn,cand)
+                    (row, column) = self.getcell(label, groupindex, k)
+                    for cand in range(1, self.size+1):
+                        if cand in subset: continue
+                        if cand in self.candidates[row][column]: useful = True
+                        if solve: self.removecandidate(row, column, cand)
                 if useful:
                     cells = []
-                    for s in shareindices: cells.append(self.getcell(label,groupindex,s))
-                    res.append({'method':'hiddensubset',
-                                        'infokeys':['grouplabel','groupindex','indices','values','cells'],
-                                        'grouplabel':label,'groupindex':groupindex,
-                                        'indices':shareindices,'values':subset,'cells':cells})
-                    if solve:
-                        self.writemessage('- found hidden subset in cells '+str(cells))
+                    for s in shareindices: cells.append(self.getcell(label, groupindex, s))
+                    res.append({'method': 'hiddensubset',
+                                'infokeys': ['grouplabel','groupindex','indices','values','cells'],
+                                'grouplabel':label, 'groupindex':groupindex,
+                                'indices':shareindices, 'values':subset, 'cells':cells})
+                    if solve: self.writemessage('- found hidden subset in cells '+str(cells))
         return res
                    
-    def issubset(self,smallist,biglist):
-        # help function for nakedsubset and hiddensubset
-        # return values:
-        #   -1: not a single element of smallist in biglist
-        #   0: some but not all elements of smallist in biglist
-        #   1: all elements of smallist in biglist
-        nels = 0
-        for el in smallist:
-            if el in biglist:
-                nels += 1
-        if nels==0: return -1
-        if nels==len(smallist): return 1
-        return 0
-    
-    def blocklineinteraction(self,block,blockindex,blockcands,solve=True):
+    def blocklineinteraction(self, block, blockindex, label, blockcands, solve=True):
         # ADVANCED solving method (block-based)
         # if a candidate occurs in only one row/column within a block, 
         # remove it from the rest of the row/column
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
         res = []
+        # loop over all elements to be filled
         for el in range(1,self.size+1):
             if el in block: continue
-            firstindex = -1
-            i = 0
-            while(i<self.size and firstindex==-1):
-                if el in blockcands[i]:
-                    firstindex = i
-                i += 1
-            testrw,testclmn = self.getcell('block',blockindex,firstindex)
-            allrows = [testrw]
-            uniquerows = [testrw]
-            allcols = [testclmn]
-            uniquecols = [testclmn]
-            for i in range(firstindex+1,self.size):
-                if el in blockcands[i]:
-                    rw,clmn = self.getcell('block',blockindex,i)
-                    allrows.append(rw); allcols.append(clmn)
-                    if rw not in uniquerows: uniquerows.append(rw)
-                    if clmn not in uniquecols: uniquecols.append(clmn)
-            if len(uniquerows)==1:
+            # find all rows and columns where this element is a candidate
+            # (within this block)
+            rows = []
+            columns = []
+            for i in range(self.size):
+                if el not in blockcands[i]: continue
+                row, column = self.getcell('block', blockindex, i)
+                rows.append(row)
+                columns.append(column)
+            # find unique rows and columns
+            unique_rows = list(set(rows))
+            unique_columns = list(set(columns))
+            # case where all candidates are in one row
+            if len(unique_rows)==1:
                 useful = False
-                for clmn in range(self.size):
-                    if clmn not in allcols:
-                        if el in self.candidates[testrw][clmn]: useful = True
-                        if solve: self.removecandidate(testrw,clmn,el)
+                row = unique_rows[0]
+                for column in range(self.size):
+                    if column in unique_columns: continue
+                    if el in self.candidates[row][column]: useful = True
+                    if solve: self.removecandidate(row, column, el)
                 if useful:
                     cells = []
-                    for s in allcols: cells.append((uniquerows[0],s)) 
+                    for s in unique_columns: cells.append((row, s))
                     res.append({'method':'blocklineinteraction',
-                                        'infokeys':['blockindex','linelabel','lineindex','value','cells'],
-                                        'blockindex':blockindex,'linelabel':'row','lineindex':testrw,
-                                        'value':el,'cells':cells})
-                    if solve:
-                        self.writemessage('- found block-row interaction')
-            if len(uniquecols)==1:
+                                'infokeys':['blockindex','linelabel','lineindex','value','cells'],
+                                'blockindex':blockindex, 'linelabel':'row', 'lineindex':row,
+                                'value':el, 'cells':cells})
+                    if solve: self.writemessage('- found block-row interaction')
+            # case where all candidates are in one column
+            if len(unique_columns)==1:
                 useful = False
-                for rw in range(self.size):
-                    if rw not in allrows:
-                        if el in self.candidates[rw][testclmn]: useful = True
-                        if solve: self.removecandidate(rw,testclmn,el)
+                column = unique_columns[0]
+                for row in range(self.size):
+                    if row in unique_rows: continue
+                    if el in self.candidates[row][column]: useful = True
+                    if solve: self.removecandidate(row, column, el)
                 if useful: 
                     cells = []
-                    for s in allrows: cells.append((s,uniquecols[0]))
+                    for s in unique_rows: cells.append((s, column))
                     res.append({'method':'blocklineinteraction',
-                                        'infokeys':['blockindex','linelabel','lineindex','value','cells'],
-                                        'blockindex':blockindex,'linelabel':'column','lineindex':testclmn,
-                                        'value':el,'cells':cells})
-                    if solve:
-                        self.writemessage('- found block-column interaction')
+                                'infokeys':['blockindex','linelabel','lineindex','value','cells'],
+                                'blockindex':blockindex, 'linelabel':'column', 'lineindex':column,
+                                'value':el, 'cells':cells})
+                    if solve: self.writemessage('- found block-column interaction')
         return res 
                                 
-    def lineblockinteraction(self,line,lineindex,linelabel,linecands,solve=True):
+    def lineblockinteraction(self, line, lineindex, linelabel, linecands, solve=True):
         # ADVANCED solving method (row/column-based)
         # if a candidate occurs in only one block within a row/column, 
         # remove it from the rest of the block
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
         res = []
+        # loop over all elements to be filled
         for el in range(1,self.size+1):
             if el in line: continue
-            firstindex = -1
-            i = 0
-            while(i<self.size and firstindex==-1):
-                if el in linecands[i]:
-                    firstindex = i
-                i += 1
-            testrw,testclmn = self.getcell(linelabel,lineindex,firstindex)
-            testblock = self.getblockindex(testrw,testclmn)
-            oneblock = True
-            cells = [(testrw,testclmn)]
-            for i in range(firstindex+1,self.size):
-                if el in linecands[i]:
-                    rw,clmn = self.getcell(linelabel,lineindex,i)
-                    cells.append((rw,clmn))
-                    block = self.getblockindex(rw,clmn)
-                    if block!=testblock: oneblock = False
-            if oneblock:
+            # find all blocks where this element is a candidate
+            # (within this line)
+            blocks = []
+            for i in range(self.size):
+                if el not in linecands[i]: continue
+                row, column = self.getcell(linelabel, lineindex, i)
+                blocks.append(self.getblockindex(row,column))
+            unique_blocks = list(set(blocks))
+            # case where all candidates occur within a single block
+            if len(unique_blocks)==1:
                 useful = False
-                firstrow,firstcolumn = np.multiply(divmod(testblock,self.blocksize),self.blocksize)
-                for rw in range(firstrow,firstrow+self.blocksize):
-                    for clmn in range(firstcolumn,firstcolumn+self.blocksize):
-                        if((linelabel=='row' and not rw==lineindex)
-                           or (linelabel=='column' and not clmn==lineindex)):
-                            if el in self.candidates[rw][clmn]: useful = True
-                            if solve: self.removecandidate(rw,clmn,el)
+                block = unique_blocks[0]
+                # loop over all other cells in the block
+                firstrow, firstcolumn = np.multiply(divmod(block, self.blocksize), self.blocksize)
+                for row in range(firstrow, firstrow+self.blocksize):
+                    for column in range(firstcolumn, firstcolumn+self.blocksize):
+                        if linelabel=='row' and row==lineindex: continue
+                        if linelabel=='column' and column==lineindex: continue
+                        if el in self.candidates[row][column]: useful = True
+                        if solve: self.removecandidate(row, column, el)
                 if useful:
                     res.append({'method':'lineblockinteraction',
                                 'infokeys':['lineindex','linelabel','blockindex','value','cells'],
                                 'lineindex':lineindex,'linelabel':linelabel,'blockindex':testblock,
                                 'value':el,'cells':cells})
-                    if solve:
-                        self.writemessage('- found line-block interaction')
+                    if solve: self.writemessage('- found line-block interaction')
         return res
                                 
-    def blockblockhorizontalinteraction(self,group,groupindex,label,candidates,solve=True):
+    def blockblockhorizontalinteraction(self, group, groupindex, label, candidates, solve=True):
         # ADVANCED solving method (block-based)
         # if a candidate occurs in only two rows in two horizontally aligned blocks, 
         # remove it from the remaining positions in those rows
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
+        # todo: generalize to grids of different sizes (?)
         res = []
+        # loop over all other blocks than the one provided as argument
         for i in range(self.size):
-            if(i<=groupindex or self.getcell(label,i,0)[0]!=self.getcell(label,groupindex,0)[0]): continue
-            groupi,candidatesi = self.getblock(i)
-            for el in range(1,self.size+1):
+            if i<=groupindex: continue
+            # (note: the above should be != instead of <= to be fully general,
+            #  but in practice this is always run in a loop, so it is ok)
+            # ignore blocks that are not horizontally aligned
+            firstrow = self.getcell(label, groupindex, 0)[0]
+            testrow = self.getcell(label, i, 0)[0]
+            if testrow!=firstrow: continue
+            groupi, candidatesi = self.getblock(i)
+            # loop over all elements to be filled
+            for el in range(1, self.size+1):
                 if(el in group or el in groupi): continue
+                # find unique rows and columns where this element is a candidate
+                # (within these two blocks)
                 rows = []
                 columns = []
                 for j in range(self.size):
                     if el in candidates[j]:
-                        row,column = self.getcell(label,groupindex,j)
+                        row,column = self.getcell(label, groupindex, j)
                         if row not in rows: rows.append(row)
                         if column not in columns: columns.append(column)
                     if el in candidatesi[j]:
-                        row,column = self.getcell(label,i,j)
+                        row,column = self.getcell(label, i, j)
                         if row not in rows: rows.append(row)
                         if column not in columns: columns.append(column)
+                # case where candidates are grouped in only two rows
                 if len(rows)==2:
                     useful = False
                     for j in range(self.size):
-                        if j not in columns:
-                            if(el in self.candidates[rows[0]][j] or el in self.candidates[rows[1]][j]):
-                                useful = True
-                            if solve:
-                                self.removecandidate(rows[0],j,el)
-                                self.removecandidate(rows[1],j,el)
-                    if useful: 
+                        if j in columns: continue
+                        if el in self.candidates[rows[0]][j]:
+                            useful = True
+                            if solve: self.removecandidate(rows[0], j, el)
+                        if el in self.candidates[rows[1]][j]:
+                            useful = True
+                            if solve: self.removecandidate(rows[1], j, el)
+                    if useful:
                         cells = []
-                        for j in range(self.size): cells.append((rows[0],j)); cells.append((rows[1],j))
-                        res.append({'method':'blockblockhorizontalinteraction',
-                                            'infokeys':['block1index','block2index','value','cells'],
-                                            'block1index':groupindex,'block2index':i,'value':el,'cells':cells})
-                        if solve:
-                            self.writemessage('- found horizontal block-block interaction')
+                        for j in range(self.size):
+                            cells.append((rows[0],j))
+                            cells.append((rows[1],j))
+                        res.append({'method': 'blockblockhorizontalinteraction',
+                                    'infokeys': ['block1index','block2index','value','cells'],
+                                    'block1index': groupindex, 'block2index': i,
+                                    'value':el, 'cells':cells})
+                        if solve: self.writemessage('- found horizontal block-block interaction')
         return res
         
-    def blockblockverticalinteraction(self,group,groupindex,label,candidates,solve=True):
+    def blockblockverticalinteraction(self, group, groupindex, label, candidates, solve=True):
         # ADVANCED solving method (block-based)
         # if a candidate occurs in only two columns in two vertically aligned blocks, 
         # remove it from the remaining positions in those columns
         # input arguments:
         # - solve: boolean whether to modify the grid or only return hint
         res = []
+        # loop over al other blocks than the one provided as argument
         for i in range(self.size):
-            if(i<=groupindex or self.getcell(label,i,0)[1]!=self.getcell(label,groupindex,0)[1]): continue
+            if i<=groupindex: continue
+            # (note: the above should be != instead of <= to be fully general,
+            #  but in practice this is always run in a loop, so it is ok)
+            # ignore blocks that are not vertically aligned
+            firstcolumn = self.getcell(label, groupindex, 0)[1]
+            testcolumn = self.getcell(label, i, 0)[1]
+            if testcolumn!=firstcolumn: continue
             groupi,candidatesi = self.getblock(i)
+            # loop over all elements to be filled
             for el in range(1,self.size+1):
                 if(el in group or el in groupi): continue
+                # find unique rows and columns where this element is a candidate
+                # (within these two blocks)
                 rows = []
                 columns = []
                 for j in range(self.size):
                     if el in candidates[j]:
-                        row,column = self.getcell(label,groupindex,j)
+                        row,column = self.getcell(label, groupindex, j)
                         if row not in rows: rows.append(row)
                         if column not in columns: columns.append(column)
                     if el in candidatesi[j]:
-                        row,column = self.getcell(label,i,j)
+                        row,column = self.getcell(label, i, j)
                         if row not in rows: rows.append(row)
                         if column not in columns: columns.append(column)
+                # case where candidates are grouped in only two columns
                 if len(columns)==2:
                     useful = False
                     for j in range(self.size):
-                        if j not in rows:
-                            if(el in self.candidates[j][columns[0]] 
-                                or el in self.candidates[j][columns[1]]):
-                                useful = True
-                            if solve:
-                                self.removecandidate(j,columns[0],el)
-                                self.removecandidate(j,columns[1],el)
+                        if j in rows: continue
+                        if el in self.candidates[j][columns[0]]:
+                            useful = True
+                            if solve: self.removecandidate(j, columns[0], el)
+                        if el in self.candidates[j][columns[1]]:
+                            useful = True
+                            if solve: self.removecandidate(j, columns[1], el)
                     if useful:
                         cells = []
                         for j in range(self.size): 
-                            cells.append((j,columns[0])); cells.append((j,columns[1]))
-                        res.append({'method':'blockblockverticalinteraction',
-                                    'infokeys':['block1index','block2index','value','cells'],
-                                    'block1index':groupindex,'block2index':i,'value':el,'cells':cells})
-                        if solve:
-                            self.writemessage('- found vertical block-block interaction')
+                            cells.append((j,columns[0]))
+                            cells.append((j,columns[1]))
+                        res.append({'method': 'blockblockverticalinteraction',
+                                    'infokeys': ['block1index','block2index','value','cells'],
+                                    'block1index': groupindex, 'block2index': i,
+                                    'value': el,'cells': cells})
+                        if solve: self.writemessage('- found vertical block-block interaction')
         return res
     
     def swordfishcolumns(self,solve=True):

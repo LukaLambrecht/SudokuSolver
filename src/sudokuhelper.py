@@ -52,11 +52,13 @@ class SudokuHelper(Sudoku):
             hint += self.printcell(resdict['cell'])+'\n'
             hint += '        because it is already present in the '+resdict['label']+'.\n\n'
             cells = [resdict['cell']]
+        
         elif resdict['method']=='complement':
             hint += 'The value '+str(resdict['value'])+' can be assigned to cell '
             hint += self.printcell(resdict['cell'])+'\n'
             hint += '        because it is the only place in the '+resdict['label']+' where it can go.\n\n'
             cells = [resdict['cell']]
+        
         elif resdict['method']=='nakedsubset':
             hint += 'There is an unexploited naked subset in '+resdict['grouplabel']+' '
             hint += str(resdict['groupindex']+1)+':\n'
@@ -65,6 +67,7 @@ class SudokuHelper(Sudoku):
             hint += '        You can remove those candidates from all other cells in the '
             hint += resdict['grouplabel']+'.\n\n'
             cells = resdict['cells']
+        
         elif resdict['method']=='hiddensubset':
             hint += 'There is an unexploited hidden subset in '+resdict['grouplabel']+' '
             hint += str(resdict['groupindex'])+':\n'
@@ -72,7 +75,8 @@ class SudokuHelper(Sudoku):
             hint += str([f+1 for f in resdict['indices']])+'.\n'
             hint += '        You can remove all other candidates from those cells in the '
             hint += resdict['grouplabel']+'.\n\n'
-            cells = ['cells']
+            cells = resdict['cells']
+        
         elif resdict['method']=='blocklineinteraction':
             hint += 'There is an unexploited block-line interaction\n'
             hint += '        (i.e. candidates within a block align)\n'
@@ -80,6 +84,7 @@ class SudokuHelper(Sudoku):
             hint += ' '+str(resdict['lineindex']+1)+'.\n'
             hint += '        Check candidate '+str(resdict['value'])+'.\n\n'
             cells = resdict['cells']
+        
         elif resdict['method']=='lineblockinteraction':
             hint += 'There is an unexploited line-block interaction\n'
             hint += '        (i.e. candidates within a line are blocked)\n'
@@ -87,18 +92,21 @@ class SudokuHelper(Sudoku):
             hint += str(resdict['blockindex']+1)+'.\n'
             hint += '        Check candidate '+str(resdict['value'])+'.\n\n'
             cells = resdict['cells']
+        
         elif resdict['method']=='blockblockhorizontalinteraction':
             hint += 'There is an unexploited horizontal block-block interaction\n'
             hint += '        (i.e. candidate appears in two rows within two horizontally aligned blocks).\n'
             hint += '        Check candidate '+str(resdict['value'])+' in blocks '+str(resdict['block1index']+1)
             hint += ' and '+str(resdict['block2index']+1)+'.\n\n'
             cells = resdict['cells']
+        
         elif resdict['method']=='blockblockverticalinteraction':
             hint += 'There is an unexploited vertical block-block interaction\n'
             hint += '        (i.e. candidate appears in two columns in two vertically aligned blocks).\n'
             hint += '        Check candidate '+str(resdict['value'])+' in blocks '+str(resdict['block1index']+1)
             hint += ' and '+str(resdict['block2index']+1)+'.\n\n'
             cells = resdict['cells']
+        
         elif resdict['method']=='swordfishcolumns':
             hint += 'There is a column-wise swordfish pattern.\n'
             hint += '        Check candidate '+str(resdict['value'])+' in the following cells:\n'
@@ -106,6 +114,7 @@ class SudokuHelper(Sudoku):
             hint += '        You can remove this candidate from all rows in the pattern\n'
             hint += '        except for the cells belonging to the swordfish pattern.\n\n'
             cells = resdict['pattern']
+        
         elif resdict['method']=='swordfishrows':
             hint += 'There is a row-wise swordfish pattern.\n'
             hint += '        Check candidate '+str(resdict['value'])+' in the following cells:\n'
@@ -113,6 +122,7 @@ class SudokuHelper(Sudoku):
             hint += '        You can remove this candidate from all columns in the pattern\n'
             hint += '        except for the cells belonging to the swordfish pattern.\n\n'
             cells = resdict['pattern']
+        
         elif resdict['method']=='xywing':
             hint += 'There is an XY-wing pattern.\n'
             hint += '        The base is cell '+self.printcell(resdict['cells'][0])+' and the wings are\n'
@@ -121,6 +131,7 @@ class SudokuHelper(Sudoku):
             hint += '        You can remove candidate '+str(resdict['value'])+' from all cells that share\n'
             hint += '        a group (row, column or block) with both wings.\n\n'
             cells = resdict['cells']
+        
         elif resdict['method']=='uniquerectangle':
             hint += 'There is a unique rectangle pattern.\n'
             hint += '        The base cells are '+self.printcell(resdict['cells'][0])
@@ -129,6 +140,7 @@ class SudokuHelper(Sudoku):
             hint += '        You can remove candidates '+str(resdict['values'])
             hint += ' from target cell '+self.printcell(resdict['target'])+'.\n\n'
             cells = resdict['cells']
+        
         elif resdict['method']=='forcingchain':
             hint += 'A forcing chain method was used.\n'
             hint += '        Cell '+self.printcell(resdict['cell'])+' can hold different numbers,\n'
@@ -137,6 +149,8 @@ class SudokuHelper(Sudoku):
                 hint += '        candidate '+str(c[2])+' in cell '+self.printcell((c[0],c[1]))+'\n'
             hint += '\n'
             cells = resdict['results']
+        
         else:
             hint = 'Oops, something went wrong, the hint cannot be shown...\n\n'
+        
         return (hint,cells)

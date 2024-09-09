@@ -50,7 +50,7 @@ def bflayout(bf):
 
 class SudokuSolverGUI:
     
-    def __init__(self,master):
+    def __init__(self, master):
         self.master = master
         master.title("SudokuSolver GUI")
 		
@@ -83,7 +83,8 @@ class SudokuSolverGUI:
                                   padx=10,pady=10)
         
         self.gridsize = 9 # default, can be changed with a button
-        self.blocksize = 3 # default, can be changed with a button
+        self.gridsize_var = tk.IntVar(master, value=self.gridsize)
+        self.blocksize = int(np.sqrt(int(self.gridsize)))
         self.blockframes = []
         self.gridcells = []
         self.candidatecells = []
@@ -249,7 +250,36 @@ class SudokuSolverGUI:
             for k in range(self.gridsize): self.candidatecells[0][0][k]['button'].grid(row=0, column=k)
 
     def open_change_size_window(self):
-        pass # to do
+        self.change_size_window = tk.Toplevel(self.master)
+        self.change_size_window.title("Choose grid size")
+        # size choosing widgets
+        size_frame = tk.Frame(self.change_size_window)
+        size_frame.grid(row=0, column=0)
+        label = tk.Label(size_frame, text="Grid size:")
+        label.grid(row=0, column=0)
+        size_options = [4, 9, 16]
+        size_widget = tk.OptionMenu(size_frame, self.gridsize_var, *size_options)
+        size_widget.grid(row=0, column=1)
+        # buttons for accepting or canceling
+        buttons_frame = tk.Frame(self.change_size_window)
+        buttons_frame.grid(row=1, column=0)
+        ok_button = tk.Button(buttons_frame, text='Ok', command=self.change_size)
+        ok_button.grid(row=0, column=0, ipadx=self.bpadx, ipady=self.bpady)
+        cancel_button = tk.Button(buttons_frame, text='Cancel', command=self.close_change_size_window)
+        cancel_button.grid(row=0, column=1, ipadx=self.bpadx, ipady=self.bpady)
+
+    def close_change_size_window(self):
+        self.change_size_window.destroy()
+
+    def change_size(self):
+        newgridsize = int(self.gridsize_var.get())
+        newblocksize = int(np.sqrt(newgridsize))
+        self.clear()
+        if newgridsize==self.gridsize: return
+        self.gridsize = newgridsize
+        self.blocksize = newblocksize
+        self.buildgrid()
+        self.change_size_window.destroy()
 
     def showcandidates(self,event,i,j):
         if self.mode.get()=='A': return None
@@ -411,11 +441,15 @@ class SudokuSolverGUI:
             self.messages_text.insert(tk.INSERT,message)
             self.messages_text.see(tk.END)
             return None
-        # case where grid size is different
+        # if file loading was successfull, clear any previous grid
+        # before setting the new one
+        self.clear()
+        # special care is needed when grid size is different
         if newgridsize!=self.gridsize:
             self.gridsize = newgridsize
             self.blocksize = newblocksize
             self.buildgrid()
+        # set the new grid
         self.setgrid(grid)
         message =  '[notification:] Grid loaded successfully.\n\n'
         self.messages_text.insert(tk.INSERT,message)
